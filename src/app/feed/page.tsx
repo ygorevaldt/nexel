@@ -1,47 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Filter, Trophy, Star, Shield, ArrowUpRight } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Search, Filter, Trophy, ArrowUpRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
-// Semi-mocked data for visual excellence
-const MOCK_PROFILES = [
-  { id: "1", nickname: "Nobru_Elite", rank: "Desafiante", score: 98, matches: 1450, winRate: "72%", image: "" },
-  { id: "2", nickname: "Two9_Kill", rank: "Mestre", score: 94, matches: 890, winRate: "65%", image: "" },
-  { id: "3", nickname: "Bak_God", rank: "Mestre", score: 91, matches: 2100, winRate: "60%", image: "" },
-  { id: "4", nickname: "Loud_Will", rank: "Diamante IV", score: 85, matches: 600, winRate: "55%", image: "" },
-  { id: "5", nickname: "Ghost_Player", rank: "Esmeralda II", score: 78, matches: 340, winRate: "52%", image: "" },
-  { id: "6", nickname: "FF_Queen", rank: "Diamante I", score: 82, matches: 520, winRate: "58%", image: "" },
-];
+interface PlayerProfile {
+  id: string;
+  nickname: string;
+  rank: string;
+  score: number;
+  matches: number;
+  winRate: string;
+  image: string;
+}
 
 export default function FeedPage() {
   const [search, setSearch] = useState("");
-  
-  const filtered = MOCK_PROFILES.filter(p => 
-    p.nickname.toLowerCase().includes(search.toLowerCase())
-  );
+  const [profiles, setProfiles] = useState<PlayerProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfiles = useCallback(async (q: string) => {
+    setLoading(true);
+    try {
+      const url = q ? `/api/feed?search=${encodeURIComponent(q)}` : '/api/feed';
+      const res = await fetch(url);
+      const json = await res.json();
+      setProfiles(json.data ?? []);
+    } catch {
+      setProfiles([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchProfiles(search), 300);
+    return () => clearTimeout(timer);
+  }, [search, fetchProfiles]);
 
   return (
     <div className="container max-w-7xl py-10 px-4 md:px-8 space-y-8">
-      
+
       {/* Search and Filter Header */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="space-y-1 text-center md:text-left">
           <h1 className="text-3xl font-extrabold tracking-tight">Explorar Talentos</h1>
           <p className="text-muted-foreground text-sm">Descubra os próximos pro-players analisados por nossa IA.</p>
         </div>
-        
+
         <div className="flex w-full md:w-auto items-center gap-2">
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar por Nick..." 
+            <Input
+              placeholder="Buscar por Nick..."
               className="pl-10 h-10 rounded-full bg-muted/50 border-border/50 focus:bg-background transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -56,7 +73,7 @@ export default function FeedPage() {
       {/* Grid of Players */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence>
-          {filtered.map((player, idx) => (
+          {profiles.map((player, idx) => (
             <motion.div
               key={player.id}
               initial={{ opacity: 0, y: 20 }}
@@ -65,7 +82,7 @@ export default function FeedPage() {
               layout
             >
               <Card className="group relative overflow-hidden bg-card/40 border-border/50 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 backdrop-blur-sm">
-                
+
                 {/* Visual Accent */}
                 <div className="absolute top-0 right-0 p-4">
                    <div className="flex flex-col items-end">
@@ -106,8 +123,8 @@ export default function FeedPage() {
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
                     <span className="text-[10px] text-muted-foreground uppercase font-medium">Ativo</span>
                   </div>
-                  <Link 
-                    href={`/profile/${player.id}`} 
+                  <Link
+                    href={`/profile/${player.id}`}
                     className={buttonVariants({ variant: "ghost", size: "sm", className: "h-8 px-3 rounded-full hover:bg-primary hover:text-white" })}
                   >
                     Ver Perfil <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -119,7 +136,7 @@ export default function FeedPage() {
         </AnimatePresence>
       </div>
 
-      {filtered.length === 0 && (
+      {!loading && profiles.length === 0 && (
         <div className="py-20 text-center">
            <Trophy className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
            <h3 className="text-xl font-bold text-muted-foreground">Nenhum talento encontrado.</h3>

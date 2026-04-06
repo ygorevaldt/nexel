@@ -46,7 +46,8 @@ export async function extractFrames(file: File, intervalSeconds: number = 3): Pr
     for (let i = 1; i <= fileCount; i++) {
         try {
             const data = await ffmpeg.readFile(`out/frame_${i}.jpg`);
-            const blob = new Blob([data], { type: 'image/jpeg' });
+            const blobData = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
+            const blob = new Blob([blobData], { type: 'image/jpeg' });
             frameUrls.push(URL.createObjectURL(blob));
         } catch (e) {
              // Reached the end or file doesn't exist

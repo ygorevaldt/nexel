@@ -3,31 +3,47 @@ import mongoose from 'mongoose';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error('MONGODB_URI não definida. Adicione ao .env.local');
 }
 
-let cached = (global as any).mongoose;
-
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
 }
 
-async function dbConnect() {
-  if (cached.conn) {
-    return cached.conn;
-  }
+// Persist connection across hot reloads in development
+const globalWithMongoose = global as typeof global & { _mongooseCache?: MongooseCache };
 
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
+if (!globalWithMongoose._mongooseCache) {
+  globalWithMongoose._mongooseCache = { conn: null, promise: null };
+}
 
-    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
+const cache = globalWithMongoose._mongooseCache;
+
+async function dbConnect(): Promise<typeof mongoose> {
+  if (cache.conn) return cache.conn;
+
+  if (!cache.promise) {
+    cache.promise = mongoose.connect(MONGODB_URI!, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    }).then(async (mg) => {
+      // Ensure unique indexes exist for User collection
+      try {
+        const db = mg.connection.db;
+        if (db) {
+          await db.collection('users').createIndex({ email: 1 }, { unique: true, background: true });
+          await db.collection('users').createIndex({ freefire_id: 1 }, { unique: true, background: true });
+        }
+      } catch {
+        // Indexes may already exist — safe to ignore
+      }
+      return mg;
     });
   }
-  cached.conn = await cached.promise;
-  return cached.conn;
+
+  cache.conn = await cache.promise;
+  return cache.conn;
 }
 
 export default dbConnect;

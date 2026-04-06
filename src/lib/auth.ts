@@ -1,49 +1,48 @@
 import NextAuth, { NextAuthConfig } from "next-auth";
-import type { Adapter } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GithubProvider from "next-auth/providers/github";
-import dbConnect from "./db";
-import { User as UserModel } from "@/models/User";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { MongoClient } from "mongodb";
-// import bcrypt from "bcryptjs"; // For a real implementation
+import bcrypt from "bcryptjs";
 
-const client = new MongoClient(process.env.MONGODB_URI || "mongodb://localhost:27017");
-const clientPromise = client.connect();
+// Native MongoDB client — bypasses Mongoose model/schema caching entirely
+const mongoClient = new MongoClient(process.env.MONGODB_URI || "mongodb://localhost:27017");
 
 export const authConfig = {
-  adapter: MongoDBAdapter(clientPromise) as Adapter,
   providers: [
-    GithubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
-    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "you@example.com" },
-        password: { label: "Password", type: "password" }
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing email or password");
+          throw new Error("Preencha todos os campos.");
         }
 
-        await dbConnect();
-        const user = await UserModel.findOne({ email: credentials.email });
+        const email = (credentials.email as string).trim().toLowerCase();
+        const password = credentials.password as string;
 
-        if (!user) {
-          throw new Error("No user found");
+        await mongoClient.connect();
+        const db = mongoClient.db();
+        const user = await db.collection('users').findOne({ email });
+
+        if (!user || !user.passwordHash) {
+          throw new Error("Credenciais inválidas.");
+        }
+
+        const isValid = await bcrypt.compare(password, user.passwordHash as string);
+        if (!isValid) {
+          throw new Error("Credenciais inválidas.");
         }
 
         return {
           id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        } as any;
-      }
-    })
+          email: user.email as string,
+          name: user.name as string,
+          role: user.role as string,
+        };
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
@@ -62,15 +61,15 @@ export const authConfig = {
         session.user.role = token.role as string;
       }
       return session;
-    }
+    },
   },
   pages: {
     signIn: "/login",
   },
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET || "default_secret_for_dev",
+  secret: process.env.NEXTAUTH_SECRET,
 } satisfies NextAuthConfig;
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
