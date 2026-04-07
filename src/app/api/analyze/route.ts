@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import dbConnect from "@/lib/db";
-import { AiAnalysis } from "@/models/AiAnalysis";
-import { User } from "@/models/User";
-import { findProfileById, addAiScoreToHistory } from "@/repositories/ProfileRepository";
 import { auth } from "@/lib/auth";
+import { findUserById } from "@/repositories/UserRepository";
+import { findProfileByUserId } from "@/repositories/ProfileRepository";
+import {
+  countTodayAnalyses,
+  findCachedContextForToday,
+  createAnalysis,
+} from "@/repositories/AiAnalysisRepository";
+import { addAiScoreToHistory } from "@/repositories/ProfileRepository";
 
-const DAILY_FREE_LIMIT = 0;   // FREE users: no analyses
-const DAILY_PRO_LIMIT = 5;    // PRO users: 5 per day (more costs credits)
+const DAILY_PRO_LIMIT = 5;
 
 const ai = new GoogleGenAI({});
 
 // ─── Gemini Structured Output Schema ───────────────────────────────────────────
-// All fields required so the model NEVER returns partial data.
 const analysisSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -78,17 +80,16 @@ const analysisSchema: Schema = {
   ],
 };
 
-// ─── Elite Recruiter System Prompt ────────────────────────────────────────────
 const ELITE_RECRUITER_PROMPT = `
 Você é um Recrutador de Elite de e-sports com 10 anos de experiência seletionando jogadores para as maiores organizações do Brasil: FURIA, LOUD e Fluxo.
 
-Sua missão é avaliar jogadores de Free Fire com a frieza e precisão de um scout profissional. 
+Sua missão é avaliar jogadores de Free Fire com a frieza e precisão de um scout profissional.
 Você viu MILHARES de jogadores. Você sabe distinguir potencial real de hype barato.
 
 Regras do seu julgamento:
 1. NUNCA dê pontuações generosas sem justificativa técnica real. 80+ = potencial PRO comprovado.
 2. Seja BRUTALMENTE HONESTO. Jogadores medíocres precisam saber que são medíocres.
-3. Cite AÇÕES ESPECÍFICAS visíveis nos frames: "no frame X, o jogador..." 
+3. Cite AÇÕES ESPECÍFICAS visíveis nos frames: "no frame X, o jogador..."
 4. Avalie: movimento, uso de gloo wall, rotação, posicionamento, leitura de safezone, timing.
 5. Compare com o nível profissional — se não está no nível, diga claramente o que falta.
 6. "recruiter_feedback" deve soar como um relatório enviado para o CEO da organização.
@@ -106,10 +107,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    await dbConnect();
-
-    // ─── Subscription & Daily Limit Check ────────────────────────────────────
-    const user = await User.findById(session.user.id).lean();
+    // ─── Subscription Check ───────────────────────────────────────────────────
+    const user = await findUserById(session.user.id);
     if (!user) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
@@ -125,26 +124,23 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const framesBase64 = formData.getAll("frames") as string[];
-    const profileId = formData.get("profile_id") as string;
 
     if (!framesBase64 || framesBase64.length === 0) {
       return NextResponse.json({ error: "Nenhum frame fornecido" }, { status: 400 });
     }
-    if (!profileId) {
-      return NextResponse.json({ error: "profile_id é obrigatório" }, { status: 400 });
+
+    // ─── Authorization: profile must belong to the authenticated user ─────────
+    // We ignore any profile_id sent by the client and derive it from the session.
+    const profile = await findProfileByUserId(session.user.id);
+    if (!profile) {
+      return NextResponse.json({ error: "Perfil não encontrado para este usuário." }, { status: 404 });
     }
 
-    // Daily limit applies only to PRO (SCOUT is unlimited)
+    const profileId = String(profile._id);
+
+    // ─── Daily Limit (PRO only — SCOUT is unlimited) ──────────────────────────
     if (subscriptionStatus === "PRO") {
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-
-      const todayCount = await AiAnalysis.countDocuments({
-        profile_id: profileId,
-        status: "COMPLETED",
-        createdAt: { $gte: todayMidnight },
-      });
-
+      const todayCount = await countTodayAnalyses(profileId);
       if (todayCount >= DAILY_PRO_LIMIT) {
         return NextResponse.json(
           {
@@ -159,26 +155,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Context Caching: Cost Optimization ───────────────────────────────────
-    // Check if this profile already has a cached context created today.
-    // If yes, we skip re-sending the system prompt on every call (~75% token reduction).
-    let cachedContextId: string | undefined;
-    let cacheHit = false;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const existingAnalysis = await AiAnalysis.findOne({
-      profile_id: profileId,
-      cached_context_id: { $exists: true, $ne: null },
-      createdAt: { $gte: todayStart },
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    if (existingAnalysis?.cached_context_id) {
-      cachedContextId = existingAnalysis.cached_context_id;
-      cacheHit = true;
-    }
+    const cachedContextId = await findCachedContextForToday(profileId);
+    const cacheHit = cachedContextId !== null;
 
     // ─── Format frames as inline parts ───────────────────────────────────────
     const inlineDataParts = framesBase64.map((base64Str) => {
@@ -195,9 +173,8 @@ export async function POST(req: NextRequest) {
     let response;
 
     if (cacheHit && cachedContextId) {
-      // Use cached context — only send the frames, not the system prompt
       response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash",
         contents: [
           "Analise estes novos frames de gameplay do mesmo jogador. Aplique os mesmos critérios rigorosos do scout de elite.",
           ...inlineDataParts,
@@ -206,13 +183,9 @@ export async function POST(req: NextRequest) {
           responseMimeType: "application/json",
           responseSchema: analysisSchema,
           temperature: 0.2,
-          // Note: cachedContent is the field for context caching in the API
-          // The cachedContextId would be used here in the full Gemini Context Caching API
-          // Reference: https://ai.google.dev/gemini-api/docs/context-caching
         },
       });
     } else {
-      // First analysis of the day — send full system prompt
       response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [
@@ -234,12 +207,12 @@ export async function POST(req: NextRequest) {
 
     const analysisData = JSON.parse(response.text);
 
-    // ─── Save Analysis to DB ──────────────────────────────────────────────────
-    const newAnalysis = await AiAnalysis.create({
+    // ─── Save Analysis & Update Profile Score ─────────────────────────────────
+    const newAnalysis = await createAnalysis({
       profile_id: profileId,
       status: "COMPLETED",
       analysis_data: analysisData,
-      cached_context_id: cachedContextId || undefined,
+      cached_context_id: cachedContextId ?? undefined,
       token_usage: {
         prompt_tokens: response.usageMetadata?.promptTokenCount ?? 0,
         completion_tokens: response.usageMetadata?.candidatesTokenCount ?? 0,
@@ -248,8 +221,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // ─── Update Profile's Global Score ───────────────────────────────────────
-    // The overall_potential_score from this analysis becomes the new global_score.
     await addAiScoreToHistory(profileId, analysisData.overall_potential_score);
 
     return NextResponse.json({

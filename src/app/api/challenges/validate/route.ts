@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import dbConnect from "@/lib/db";
 import { updateChallengeStatus, findChallengeById } from "@/repositories/ChallengeRepository";
 import { recordMatchResult, findProfileByUserId } from "@/repositories/ProfileRepository";
 
@@ -37,8 +36,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    await dbConnect();
 
     const challenge = await findChallengeById(challenge_id);
     if (!challenge) {

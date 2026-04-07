@@ -1,6 +1,33 @@
 import dbConnect from '@/lib/db';
 import { User, IUser } from '@/models/User';
 
+export async function checkUserExists(
+  email: string,
+  freefireId: string
+): Promise<{ emailExists: boolean; idExists: boolean }> {
+  await dbConnect();
+  const [emailUser, idUser] = await Promise.all([
+    User.findOne({ email }).lean(),
+    User.findOne({ freefire_id: freefireId }).lean(),
+  ]);
+  return { emailExists: !!emailUser, idExists: !!idUser };
+}
+
+export async function createUser(data: {
+  name: string;
+  email: string;
+  freefire_id: string;
+  passwordHash: string;
+}): Promise<IUser> {
+  await dbConnect();
+  return User.create({
+    ...data,
+    role: 'FREE',
+    subscriptionStatus: 'FREE',
+    accountType: 'PLAYER',
+  });
+}
+
 export async function findUserById(id: string): Promise<IUser | null> {
   await dbConnect();
   return User.findById(id).lean();

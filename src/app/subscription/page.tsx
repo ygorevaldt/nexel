@@ -131,7 +131,7 @@ export default function SubscriptionPage() {
           Invista na sua carreira
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto">
-          Desbloqueie análises ilimitadas de IA, apareça no radar dos maiores scouts do Free Fire,
+          Desbloqueie análises de IA, apareça no radar dos maiores scouts do Free Fire,
           e acelere sua evolução como pro-player.
         </p>
       </div>
@@ -205,7 +205,7 @@ export default function SubscriptionPage() {
             >
               <Card className={`relative overflow-hidden border-2 transition-all duration-300 ${planColors.border}`}>
                 <div className={`absolute inset-0 bg-linear-to-b ${planColors.gradient} pointer-events-none`} />
-                
+
                 <CardHeader className="relative">
                   <div className="flex items-center justify-between mb-2">
                     <div className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase border rounded-full px-3 py-1 ${planColors.badge}`}>
@@ -276,65 +276,64 @@ export default function SubscriptionPage() {
 
       {/* Transaction History (Only visible if logged in) */}
       {status === "authenticated" && (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <History className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-xl font-bold tracking-tight">Histórico de Pagamentos</h2>
-        </div>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-xl font-bold tracking-tight">Histórico de Pagamentos</h2>
+          </div>
 
-        <Card className="border-border/30 shadow-none bg-card/20 overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="font-bold text-[10px] uppercase">Data</TableHead>
-                <TableHead className="font-bold text-[10px] uppercase">Tipo</TableHead>
-                <TableHead className="font-bold text-[10px] uppercase">Plano</TableHead>
-                <TableHead className="font-bold text-[10px] uppercase text-center">Status</TableHead>
-                <TableHead className="text-right font-bold text-[10px] uppercase">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data?.transactions.length ?? 0) === 0 ? (
+          <Card className="border-border/30 shadow-none bg-card/20 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
-                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                    Nenhum pagamento ainda
-                  </TableCell>
+                  <TableHead className="font-bold text-[10px] uppercase">Data</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase">Tipo</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase">Plano</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase text-center">Status</TableHead>
+                  <TableHead className="text-right font-bold text-[10px] uppercase">Valor</TableHead>
                 </TableRow>
-              ) : (
-                data?.transactions.map((tx) => (
-                  <TableRow key={tx.id} className="hover:bg-muted/20 border-border/20 transition-colors">
-                    <TableCell className="text-muted-foreground text-xs">{tx.date}</TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {tx.type.replace(/_/g, " ")}
-                    </TableCell>
-                    <TableCell>
-                      {tx.plan && (
-                        <Badge variant="outline" className="text-[10px] uppercase">{tx.plan}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] uppercase font-black ${
-                          tx.status === "COMPLETED"
-                            ? "text-emerald-400 border-emerald-400/20"
-                            : "text-amber-400 border-amber-400/20"
-                        }`}
-                      >
-                        {tx.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-black tabular-nums text-emerald-400">
-                      R$ {tx.amount.toFixed(2).replace(".", ",")}
+              </TableHeader>
+              <TableBody>
+                {(data?.transactions.length ?? 0) === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                      Nenhum pagamento ainda
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
+                ) : (
+                  data?.transactions.map((tx) => (
+                    <TableRow key={tx.id} className="hover:bg-muted/20 border-border/20 transition-colors">
+                      <TableCell className="text-muted-foreground text-xs">{tx.date}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {tx.type.replace(/_/g, " ")}
+                      </TableCell>
+                      <TableCell>
+                        {tx.plan && (
+                          <Badge variant="outline" className="text-[10px] uppercase">{tx.plan}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] uppercase font-black ${tx.status === "COMPLETED"
+                              ? "text-emerald-400 border-emerald-400/20"
+                              : "text-amber-400 border-amber-400/20"
+                            }`}
+                        >
+                          {tx.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-black tabular-nums text-emerald-400">
+                        R$ {tx.amount.toFixed(2).replace(".", ",")}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
       )}
     </div>
   );

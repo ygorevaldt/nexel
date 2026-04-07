@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import { Profile, IProfile } from '@/models/Profile';
 
@@ -99,4 +100,39 @@ export async function recordMatchResult(
   if (result === 'win') inc['metrics.wins'] = 1;
   else inc['metrics.losses'] = 1;
   return Profile.findByIdAndUpdate(profileId, { $inc: inc }, { new: true }).lean();
+}
+/**
+ * Toggles a specific analysis ID in the profile's highlights and enforces the MAX_HIGHLIGHTS limit.
+ * Returns the updated highlight list and whether it was added or removed.
+ */
+export async function toggleAnalysisHighlight(
+  profileId: string,
+  analysisId: string
+): Promise<{ highlighted: boolean; highlightedIds: string[] }> {
+  await dbConnect();
+  const MAX_HIGHLIGHTS = 5;
+
+  const profile = await Profile.findById(profileId);
+  if (!profile) throw new Error('Perfil não encontrado');
+
+  const objectId = new mongoose.Types.ObjectId(analysisId);
+  const currentHighlights = profile.highlighted_analysis_ids ?? [];
+  const isHighlighted = currentHighlights.some((id) => id.equals(objectId));
+
+  if (isHighlighted) {
+    // Remove from highlights
+    profile.highlighted_analysis_ids = currentHighlights.filter((id) => !id.equals(objectId));
+  } else {
+    // Add — enforce max
+    if (currentHighlights.length >= MAX_HIGHLIGHTS) {
+      throw new Error(`Máximo de ${MAX_HIGHLIGHTS} destaques atingido`);
+    }
+    profile.highlighted_analysis_ids = [...currentHighlights, objectId];
+  }
+
+  await profile.save();
+  return {
+    highlighted: !isHighlighted,
+    highlightedIds: profile.highlighted_analysis_ids.map((id) => id.toString()),
+  };
 }

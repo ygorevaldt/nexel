@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import dbConnect from '@/lib/db';
-import { User } from '@/models/User';
+import { checkUserExists, createUser } from '@/repositories/UserRepository';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,31 +14,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres.' }, { status: 400 });
     }
 
-    await dbConnect();
+    const normalizedEmail = (email as string).toLowerCase().trim();
+    const normalizedId = (freefire_id as string).trim();
 
-    const [emailExists, idExists] = await Promise.all([
-      User.findOne({ email: email.toLowerCase().trim() }),
-      User.findOne({ freefire_id: freefire_id.trim() }),
-    ]);
+    const { emailExists, idExists } = await checkUserExists(normalizedEmail, normalizedId);
 
     if (emailExists) {
       return NextResponse.json({ error: 'Este e-mail já está cadastrado.' }, { status: 409 });
     }
-
     if (idExists) {
       return NextResponse.json({ error: 'Este ID do Free Fire já está em uso.' }, { status: 409 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    await User.create({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      freefire_id: freefire_id.trim(),
+    await createUser({
+      name: (name as string).trim(),
+      email: normalizedEmail,
+      freefire_id: normalizedId,
       passwordHash,
-      role: 'FREE',
-      subscriptionStatus: 'FREE',
-      accountType: 'PLAYER',
     });
 
     return NextResponse.json({ success: true }, { status: 201 });

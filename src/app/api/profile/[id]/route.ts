@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findProfileById } from '@/repositories/ProfileRepository';
 import { findUserById } from '@/repositories/UserRepository';
-import dbConnect from '@/lib/db';
-import { AiAnalysis } from '@/models/AiAnalysis';
+import { findLatestCompletedAnalysis } from '@/repositories/AiAnalysisRepository';
 
 /**
  * GET /api/profile/[id]
@@ -19,22 +18,13 @@ export async function GET(
     const { id } = await params;
     const session = await auth();
 
-    await dbConnect();
-
     const profile = await findProfileById(id);
     if (!profile) {
       return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 404 });
     }
 
-    // Get the most recent completed analysis
-    const latestAnalysis = await AiAnalysis.findOne({
-      profile_id: id,
-      status: 'COMPLETED',
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const latestAnalysis = await findLatestCompletedAnalysis(id);
 
-    // Check if requester has SCOUT access to contact info
     let contactInfo: { discord?: string; whatsapp?: string } | null = null;
     if (session?.user?.id) {
       const viewer = await findUserById(session.user.id);
@@ -64,9 +54,7 @@ export async function GET(
               )
             : 0,
       },
-      // Score history for the evolution chart (last 20 entries)
       ai_score_history: (profile.ai_score_history ?? []).slice(-20),
-      // AI analysis — full recruiter_feedback available for all
       latest_analysis: latestAnalysis
         ? {
             overall_potential_score: latestAnalysis.analysis_data?.overall_potential_score ?? 0,
@@ -77,7 +65,6 @@ export async function GET(
             analyzed_at: latestAnalysis.createdAt,
           }
         : null,
-      // Contact info: null for non-SCOUT users
       contact_info: contactInfo,
       is_contact_visible: contactInfo !== null,
     };
