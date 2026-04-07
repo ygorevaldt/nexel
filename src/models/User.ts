@@ -39,10 +39,5 @@ const UserSchema: Schema<IUser> = new Schema(
 // Index for Stripe webhooks to quickly find users by customerId
 UserSchema.index({ stripeCustomerId: 1 }, { sparse: true });
 
-// In development, delete the cached model so schema changes are always applied
-// after hot reloads. Without this, Mongoose silently strips new fields (strict mode).
-if (process.env.NODE_ENV !== 'production') {
-  delete (mongoose.models as Record<string, unknown>).User;
-}
-
-export const User: Model<IUser> = mongoose.model<IUser>('User', UserSchema);
+export const User: Model<IUser> =
+  (mongoose.models.User as Model<IUser>) ?? mongoose.model<IUser>('User', UserSchema);
