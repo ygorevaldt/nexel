@@ -1,63 +1,72 @@
-# Free Fire Elite Hub
+# Nexel Player
 
-> **Um ecossistema de monetização, performance e descoberta de talentos para jogadores de Free Fire.**
+> **Um ecossistema de performance profissional e descoberta de talentos para jogadores de Free Fire.**
 
-O **Free Fire Elite Hub** é uma plataforma inovadora alimentada por IA desenvolvida para profissionalizar o cenário amador e pro-player. O ecossistema permite que jogadores melhorem seu gameplay usando visão computacional, apostem de forma segura contra rivais em desafios e construam um portfólio rico em dados para entrarem no radar de guildas e organizações de alto nível.
+O **Nexel Player** é uma plataforma SaaS alimentada por IA desenvolvida para profissionalizar o cenário de e-sports. O ecossistema permite que jogadores elevem seu nível técnico usando análise avançada de visão computacional, compitam em desafios de arena e construam um portfólio rico em métricas para atrair o radar de olheiros e organizações competitivas.
 
 ---
 
 ## 🎯 Principais Funcionalidades
 
-### 1. Perfil e Radar de Talentos (Gratuito)
-Jogadores criam um "Currículo" da sua vida no Free Fire contendo nome, ID, bio, elo e um `Global Score`. Eles aparecem em um feed social filtrável que times podem utilizar como **Olheiros / Scouts**.
+### 1. Vitrine de Talentos & Social Feed
+Jogadores criam um perfil focado em métricas competitivas, contendo histórico de desempenho, `Global Score` e highlights. A plataforma oferece um feed filtrável para que **Scouts (Olheiros)** identifiquem novos talentos baseados em dados reais, não apenas em clipes editados.
 
-### 2. O "CT de Bolso" - Coach IA
-Usuários fazem upload dos seus melhores ou piores momentos pelo próprio navegador. Através do processamento *client-side* seguro e rápido do nosso Hub com a tecnologia **Google Gemini Vision**, os jogadores extraem um Raio-X completo com pontuações rigorosas que variam de 0-100 para:
-*   Movimentação e fluídez
-*   Uso de Gel (Velocidade e posicionamento das *Gloo Walls*)
-*   Eficiência de rotação (Sentido de mapa e timing)
+### 2. Coach IA (PRO)
+Através do processamento *client-side* com **FFmpeg WASM** e a tecnologia **Google Gemini 2.5 Flash**, os jogadores recebem uma análise técnica rigorosa de seus clipes. A IA avalia com precisão:
+*   **Movimentação:** Agilidade, uso de HUD e posicionamento em combate.
+*   **Uso de Gelo:** Velocidade de reação e eficiência das *Gloo Walls*.
+*   **Eficiência de Rotação:** Inteligência de mapa, timing de zona e tomada de decisão.
+*   **Relatório de Recrutador:** Feedback técnico detalhado com pontos de melhoria e elogios técnicos.
 
-### 3. Modulo de Desafios & Escrow (Apostas Seguras)
-Idealização de confrontos (1v1 ou 4x4) criados pelo painel com taxa de aposta definida (ex: R$ 50). A plataforma atua como um árbitro seguro (escrow) travando os fundos de ambos na fase de ingresso.
-A moderação das partidas e definição de vencedores também passam pela IA (Result Validator - RF06).
+### 3. Arena de Desafios & Ranking
+Módulo para confrontos (1v1 ou 4x4) com sistema de ranking global. O posicionamento no leaderboard é determinado pela consistência de vitórias e pelo score técnico atribuído pela IA, criando um ambiente competitivo meritocrático.
+
+### 4. Monetização
+Sistema de assinatura para o plano PRO, com suporte a depósitos e saques seguros.
 
 ---
 
 ## 🏗️ Arquitetura do Sistema
 
-O projeto foi construído usando uma arquitetura *API-First* combinada com as melhores práticas de DDD (Domain Driven Design) e do Next.js App Router para escalar de 1 a milhões de usuários sem dor de cabeça.
+O projeto utiliza o **Next.js 16 App Router** com foco em performance e escalabilidade, adotando padrões de design modernos e tipagem estrita.
 
 ### Stack Tecnológica
-*   **Apresentação:** Next.js 14+ (App Router), React 18, Server Components
-*   **Estilização:** Tailwind CSS (v4), Shadcn/UI (Componentes Acessíveis), Framer Motion
-*   **Banco de Dados:** MongoDB Atlas, Mongoose (como ODM)
-*   **Autenticação:** NextAuth.js (v4 / Auth.js) + Adaptação MongoDB
-*   **Inteligência Artificial:** Google Gemini API 2.5 Flash (`@google/genai` Structured Outputs)
-*   **Vídeo & Mídia:** FFmpeg WebAssembly (`@ffmpeg/ffmpeg`) executado no Client-Side
-*   **Infraestrutura:** Vercel (Edge & Serverless)
-
-### Modelagem Direto ao Ponto
-
-Coleções estruturadas no MongoDB encapsuladas em `/src/models`:
-1.  **User**: Responsável pela camada de acesso (NextAuth), permissão (`FREE`, `PRO`) e saldo da carteira.
-2.  **Profile**: Extensão pública do usuário, SEO-friendly, contendo métricas sociais e `global_score`.
-3.  **AiAnalysis**: Onde salvamos todo o relatório granular de partida. A performance de cada frame cai no registro de métricas.
-4.  **Challenge**: A sala do duelo. Controlada através de status rígidos (OPEN → IN_PROGRESS → COMPLETED).
-5.  **Transaction**: Garantia de logs fiéis que compõem a carteira. (DEPOSIT, WITHDRAW, FEE, WIN).
+*   **Frontend/Framework:** Next.js 16, React 19, Server Components.
+*   **Estilização:** Tailwind CSS v4, Shadcn/UI, Framer Motion.
+*   **Banco de Dados:** MongoDB Atlas com Mongoose ODM.
+*   **Autenticação:** NextAuth.js v5 (Auth.js) com MongoDB Adapter.
+*   **Inteligência Artificial:** Google Gemini 2.5 Flash (Structured Outputs & Context Caching).
+*   **Processamento de Vídeo:** FFmpeg.wasm (Execução no navegador do cliente).
 
 ---
 
-## 🤖 A Estratégia do Pipeline de IA (Performance & Custos)
+## 🔌 Documentação da API
 
-Construímos o **CT de Bolso** considerando como ponto número 1 os limites do Serverless (timeouts habituais de 10-60s) e os custos elevados das APIs de linguagem baseados em processamento integral de vídeo.
+A plataforma segue o padrão RESTful para suas rotas `/api`.
 
-**O Fluxo de Eficiência:**
-1.  O cliente clica em "Nova Análise" e introduz um clipe `.mp4`.
-2.  O módulo `/src/lib/video-processor.ts` entra em cena carregando **FFmpeg.Wasm**.
-3.  Tudo direto no navegador do cliente (sem usar processamento da nossa infra): O vídeo é fracionado extraindo 1 frame-chave a cada 3~5 segundos para não desperdiçar limite de tokens da IA analisando frames redundantes (como correr por um campo vazio sem ações).
-4.  Esses recortes compressos se tornam base64 e viajam leves para a rota `POST /api/analyze`.
-5.  A API agrupa as imagens, adiciona o *Context Prompt* e exige um **JSON Schema (Structured Output)** ao Gemini Vision 2.5 Flash.
-6.  A IA retorna não uma redação com alucinações, mas um modelo de dados determinístico exato constando os `scores`, `mistakes` e `highlights`.
+### Análise de IA
+*   `POST /api/analyze`: Recebe frames de vídeo (base64) e o ID do perfil. Retorna um objeto JSON estruturado com scores e feedback técnico. Implementa *Context Caching* para otimização de custos e latência.
+
+### Perfil e Social
+*   `GET /api/profile/[id]`: Retorna os dados públicos do jogador, incluindo histórico de scores de IA.
+*   `GET /api/feed`: Retorna a lista paginada de jogadores para scouting, com filtros por score e elo.
+*   `GET /api/ranking`: Retorna o leaderboard global baseado em desempenho.
+
+### Competições e Financeiro
+*   `POST /api/challenges`: Criação e gerenciamento de salas de desafio.
+*   `POST /api/subscription`: Gerencia o checkout via Stripe para o plano PRO.
+*   `POST /api/webhook`: Endpoint para processamento de webhooks de pagamento.
+
+---
+
+## 🤖 Pipeline de IA e Performance
+
+O **Nexel Player** resolve o desafio de processar vídeos em infraestrutura serverless através de uma estratégia híbrida:
+
+1.  **Extração Local:** O FFmpeg.wasm extrai frames-chave no navegador do usuário.
+2.  **Payload Otimizado:** Apenas frames essenciais são enviados para a API, reduzindo drasticamente o consumo de banda e tokens.
+3.  **Structured Output:** A API força um esquema JSON determinístico no Gemini, garantindo que o frontend receba dados prontos para exibição sem alucinações.
+4.  **Custo Reduzido:** Utiliza o sistema de Caching do Gemini para evitar re-processar prompts de sistema repetidos para o mesmo usuário no mesmo dia.
 
 ```mermaid
 sequenceDiagram
@@ -68,23 +77,15 @@ sequenceDiagram
     participant MongoDB
     
     Jogador (Browser)->>FFmpeg (WASM): Envia Clipe do Jogo (.mp4)
-    Note over FFmpeg (WASM): Extrai ~1 Frame / 4 seg<br/>Total: 10 frames essenciais
-    FFmpeg (WASM)-->>Jogador (Browser): Retorna Blob/Base64 Array
+    Note over FFmpeg (WASM): Extrai ~1 Frame / 4 seg
+    FFmpeg (WASM)-->>Jogador (Browser): Retorna Array de Frames
     Jogador (Browser)->>NextJS API: POST /api/analyze (Frames + ProfileID)
-    NextJS API->>Gemini (Google): Prompt Especializado + Structured Schema + Frames
-    Gemini (Google)-->>NextJS API: Retorna JSON Estrito (Scores, Mentoria)
-    NextJS API->>MongoDB: Salva AiAnalysis + Atualiza Profile Score
-    NextJS API-->>Jogador (Browser): Resposta + Interface do Dashboard Atualiza!
+    NextJS API->>Gemini (Google): Prompt Técnico + Structured Schema + Frames
+    Gemini (Google)-->>NextJS API: Retorna JSON (Scores, Mentoria)
+    NextJS API->>MongoDB: Salva AiAnalysis + Atualiza Score do Perfil
+    NextJS API-->>Jogador (Browser): Resultado Pronto no Dashboard!
 ```
 
 ---
 
-## 📈 Próximos Passos & Oportunidades de Escala
-
-*   **Validação de Resultado (Fair Play Engine)**: Criar fine-tuning simples focado APENAS em ler as famosas telas de final de partida "BOOYAH" do Free Fire. Extrair os nicknames dos abates / vivos e repassar os valores da aposta em Sandbox para prevenir fraudes.
-*   **Webhooks Assíncronos para Escrow**: Substituir o fluxo contínuo por Webhooks (ex: Stripe ou Gateway Nacional PagCripto/Pix) para popular a Carteira Instantaneamente (Transaction Model).
-*   **Edge Caching e Rotação**: Perfis populares consumirão banco rapidamente. Subir uma camada com o Redis (`@upstash/redis`) para as páginas estáticas de jogadores.
-
----
-
-**Licença e Uso:** Este ecossistema foi projetado de forma modular e altamente configurável para ser o ponto de partida do próximo pilar dos esportes eletrônicos mobile pela Antigravity.
+**Licença:** Este ecossistema é privado e proprietário, desenvolvido para a evolução do cenário competitivo de jogos mobile.
