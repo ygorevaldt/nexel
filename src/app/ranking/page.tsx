@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, TrendingUp, Medal, Filter, Award } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Trophy, TrendingUp, Medal, Award, Lock, Crown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,12 +39,28 @@ const POSITION_ICONS: Record<number, React.ElementType> = {
 };
 
 export default function RankingPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   const [entries, setEntries] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [rank, setRank] = useState("Todos");
   const [sortBy, setSortBy] = useState("global_score");
 
+  const subscriptionStatus: string =
+    (session?.user as { subscriptionStatus?: string })?.subscriptionStatus ?? "FREE";
+  const isScout = subscriptionStatus === "SCOUT";
+  const canAccess = subscriptionStatus === "PRO" || subscriptionStatus === "SCOUT";
+
+  // Redirect unauthenticated or FREE users
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/ranking");
+    }
+  }, [status, router]);
+
   const fetchRanking = async () => {
+    if (!canAccess) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -62,7 +80,39 @@ export default function RankingPage() {
 
   useEffect(() => {
     fetchRanking();
-  }, [rank, sortBy]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rank, sortBy, canAccess]);
+
+  if (status === "loading") {
+    return (
+      <div className="container max-w-7xl mx-auto py-10 px-4 space-y-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="h-14 rounded-lg bg-muted/20 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") return null;
+
+  // FREE users: show upsell wall
+  if (!canAccess) {
+    return (
+      <div className="container max-w-7xl mx-auto py-24 px-4 flex flex-col items-center justify-center text-center gap-6">
+        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+          <Lock className="h-10 w-10 text-primary" />
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">Ranking Global</h1>
+        <p className="text-muted-foreground max-w-md">
+          O Ranking Global é exclusivo para assinantes <strong>PRO</strong> e <strong>SCOUT/Time</strong>.
+          Assine para competir e ver sua posição no leaderboard.
+        </p>
+        <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8" })}>
+          <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-8">
@@ -77,12 +127,18 @@ export default function RankingPage() {
           <p className="text-muted-foreground text-sm">
             Score = (AI Score × 60%) + (Win Rate × 40%) — sem apostas, só habilidade.
           </p>
+          {!isScout && (
+            <p className="text-xs text-muted-foreground/70 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              Acesso ao perfil completo dos jogadores disponível no Plano SCOUT.
+            </p>
+          )}
         </div>
 
         {/* Filters */}
         <div className="flex gap-3">
           <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")}>
-            <SelectTrigger id="ranking-rank-filter" className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
+            <SelectTrigger className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
               <SelectValue placeholder="Rank" />
             </SelectTrigger>
             <SelectContent>
@@ -91,7 +147,7 @@ export default function RankingPage() {
           </Select>
 
           <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")}>
-            <SelectTrigger id="ranking-sort-filter" className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
+            <SelectTrigger className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
               <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
             <SelectContent>
@@ -207,12 +263,17 @@ export default function RankingPage() {
                       <div className="font-black text-base text-primary">{entry.globalScore}</div>
                     </div>
 
-                    <Link
-                      href={`/profile/${entry.id}`}
-                      className={buttonVariants({ variant: "ghost", size: "sm", className: "h-7 px-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" })}
-                    >
-                      →
-                    </Link>
+                    {/* Profile link — SCOUT only */}
+                    {isScout ? (
+                      <Link
+                        href={`/profile/${entry.id}`}
+                        className={buttonVariants({ variant: "ghost", size: "sm", className: "h-7 px-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" })}
+                      >
+                        →
+                      </Link>
+                    ) : (
+                      <div className="w-9 h-7 shrink-0" />
+                    )}
                   </motion.div>
                 );
               })}

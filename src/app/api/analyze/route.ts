@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import dbConnect from "@/lib/db";
 import { AiAnalysis } from "@/models/AiAnalysis";
+import { User } from "@/models/User";
 import { findProfileById, addAiScoreToHistory } from "@/repositories/ProfileRepository";
 import { auth } from "@/lib/auth";
+
+const DAILY_FREE_LIMIT = 0;   // FREE users: no analyses
+const DAILY_PRO_LIMIT = 5;    // PRO users: 5 per day (more costs credits)
 
 const ai = new GoogleGenAI({});
 
@@ -102,6 +106,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    await dbConnect();
+
+    // ─── Subscription & Daily Limit Check ────────────────────────────────────
+    const user = await User.findById(session.user.id).lean();
+    if (!user) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+    }
+
+    const subscriptionStatus = user.subscriptionStatus ?? "FREE";
+
+    if (subscriptionStatus === "FREE") {
+      return NextResponse.json(
+        { error: "Análise de IA requer o Plano PRO.", requiresUpgrade: true },
+        { status: 403 }
+      );
+    }
+
     const formData = await req.formData();
     const framesBase64 = formData.getAll("frames") as string[];
     const profileId = formData.get("profile_id") as string;
@@ -113,7 +134,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "profile_id é obrigatório" }, { status: 400 });
     }
 
-    await dbConnect();
+    // Daily limit applies only to PRO (SCOUT is unlimited)
+    if (subscriptionStatus === "PRO") {
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+
+      const todayCount = await AiAnalysis.countDocuments({
+        profile_id: profileId,
+        status: "COMPLETED",
+        createdAt: { $gte: todayMidnight },
+      });
+
+      if (todayCount >= DAILY_PRO_LIMIT) {
+        return NextResponse.json(
+          {
+            error: `Limite diário atingido. Jogadores PRO podem enviar ${DAILY_PRO_LIMIT} gameplays por dia.`,
+            dailyLimit: DAILY_PRO_LIMIT,
+            usedToday: todayCount,
+            requiresCredits: true,
+          },
+          { status: 429 }
+        );
+      }
+    }
 
     // ─── Context Caching: Cost Optimization ───────────────────────────────────
     // Check if this profile already has a cached context created today.

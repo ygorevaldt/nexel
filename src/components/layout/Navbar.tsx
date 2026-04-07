@@ -54,7 +54,7 @@ export function Navbar() {
   const isLoading = status === "loading";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="flex h-16 max-w-7xl mx-auto px-4 md:px-8 items-center w-full justify-between">
 
         {/* Mobile Menu Toggle */}
@@ -68,7 +68,7 @@ export function Navbar() {
         <Link href="/" className="flex items-center space-x-2">
           <Shield className="h-6 w-6 text-primary drop-shadow-[0_0_10px_rgba(255,179,0,0.5)]" />
           <span className="font-black tracking-tight text-lg uppercase">
-            Nexel Player
+            Nexel
           </span>
         </Link>
 
@@ -173,7 +173,7 @@ export function Navbar() {
 
       {/* Mobile Nav Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border/50 bg-background/95 backdrop-blur-md px-4 py-4 space-y-4 shadow-xl">
+        <div className="md:hidden border-t border-border/50 bg-card/95 backdrop-blur-md px-4 py-4 space-y-4 shadow-xl">
           <nav className="flex flex-col space-y-2">
             {links.map((link) => {
               const isActive = pathname?.startsWith(link.href);

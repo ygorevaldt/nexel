@@ -246,10 +246,21 @@ export default function SubscriptionPage() {
                       </>
                     ) : (
                       <>
-                        <Zap className="h-4 w-4" /> Assinar {plan.name}
+                        <Zap className="h-4 w-4" />
+                        {plan.id === "SCOUT" && currentStatus === "PRO"
+                          ? "Fazer Upgrade para SCOUT"
+                          : `Assinar ${plan.name}`}
                       </>
                     )}
                   </button>
+
+                  {/* PRO → SCOUT upgrade note */}
+                  {plan.id === "SCOUT" && currentStatus === "PRO" && (
+                    <p className="text-center text-[10px] text-amber-400/80 leading-relaxed">
+                      Ao fazer upgrade, o plano SCOUT é ativado imediatamente.
+                      Não há reembolso do período restante do plano anterior.
+                    </p>
+                  )}
 
                   {!plan.stripePriceId && (
                     <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-wider">

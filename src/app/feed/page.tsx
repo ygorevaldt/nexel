@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Trophy, ArrowUpRight, Sliders } from "lucide-react";
+import { Search, Trophy, ArrowUpRight, Sliders, Lock, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -29,7 +31,22 @@ const SORT_OPTIONS = [
   { value: "headshot_rate", label: "Taxa Headshot" },
 ];
 
+function getRankColor(rank: string) {
+  const colors: Record<string, string> = {
+    Bronze: "text-orange-400 border-orange-400/30 bg-orange-400/10",
+    Silver: "text-slate-400 border-slate-400/30 bg-slate-400/10",
+    Gold: "text-yellow-400 border-yellow-400/30 bg-yellow-400/10",
+    Diamond: "text-cyan-400 border-cyan-400/30 bg-cyan-400/10",
+    Heroico: "text-purple-400 border-purple-400/30 bg-purple-400/10",
+    "Grão-Mestre": "text-primary border-primary/30 bg-primary/10",
+  };
+  return colors[rank] ?? "text-muted-foreground border-border/30";
+}
+
 export default function FeedPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   const [search, setSearch] = useState("");
   const [rank, setRank] = useState("Todos");
   const [minScore, setMinScore] = useState("");
@@ -37,14 +54,28 @@ export default function FeedPage() {
   const [profiles, setProfiles] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const subscriptionStatus: string =
+    (session?.user as { subscriptionStatus?: string })?.subscriptionStatus ?? "FREE";
+  const isPro = subscriptionStatus === "PRO" || subscriptionStatus === "SCOUT";
+  const isScout = subscriptionStatus === "SCOUT";
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login?callbackUrl=/feed");
+    }
+  }, [status, router]);
+
   const fetchProfiles = useCallback(async () => {
+    if (status !== "authenticated") return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (rank && rank !== "Todos") params.set("rank", rank);
-      if (minScore) params.set("minScore", minScore);
-      if (sortBy) params.set("sortBy", sortBy);
+      // PRO and SCOUT can use all filters; FREE only gets nick search
+      if (isPro && rank && rank !== "Todos") params.set("rank", rank);
+      if (isPro && minScore) params.set("minScore", minScore);
+      if (isPro && sortBy) params.set("sortBy", sortBy);
 
       const res = await fetch(`/api/feed?${params.toString()}`);
       const json = await res.json();
@@ -54,24 +85,24 @@ export default function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, rank, minScore, sortBy]);
+  }, [search, rank, minScore, sortBy, status, isPro]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchProfiles(), 300);
     return () => clearTimeout(timer);
   }, [fetchProfiles]);
 
-  const getRankColor = (rank: string) => {
-    const colors: Record<string, string> = {
-      Bronze: "text-orange-400 border-orange-400/30 bg-orange-400/10",
-      Silver: "text-slate-400 border-slate-400/30 bg-slate-400/10",
-      Gold: "text-yellow-400 border-yellow-400/30 bg-yellow-400/10",
-      Diamond: "text-cyan-400 border-cyan-400/30 bg-cyan-400/10",
-      Heroico: "text-purple-400 border-purple-400/30 bg-purple-400/10",
-      "Grão-Mestre": "text-primary border-primary/30 bg-primary/10",
-    };
-    return colors[rank] ?? "text-muted-foreground border-border/30";
-  };
+  if (status === "loading") {
+    return (
+      <div className="container max-w-7xl mx-auto py-10 px-4 space-y-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-40 rounded-2xl bg-muted/20 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") return null;
 
   return (
     <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-8">
@@ -80,17 +111,28 @@ export default function FeedPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-extrabold tracking-tight">Explorar Talentos</h1>
         <p className="text-muted-foreground text-sm">
-          Descubra os próximos pro-players analisados por nossa IA.
+          {isScout
+            ? "Acesso completo: métricas, score IA, análises e vídeos dos jogadores."
+            : isPro
+            ? "Descubra os próximos pro-players analisados por nossa IA."
+            : "Busque jogadores pelo nick. Assine o Plano PRO para ver score, ranking e filtros avançados."}
         </p>
+        {!isPro && (
+          <Link
+            href="/subscription"
+            className={buttonVariants({ size: "sm", className: "rounded-full mt-1" })}
+          >
+            <Crown className="h-3.5 w-3.5 mr-1.5" /> Assinar PRO para acesso completo
+          </Link>
+        )}
       </div>
 
       {/* Filters Bar */}
       <div className="flex flex-col md:flex-row gap-3 p-4 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm">
-        {/* Search */}
+        {/* Search — available to all */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            id="talent-search"
             placeholder="Buscar por Nick..."
             className="pl-10 h-10 rounded-lg bg-muted/50 border-border/50 focus:bg-background transition-all"
             value={search}
@@ -98,23 +140,28 @@ export default function FeedPage() {
           />
         </div>
 
-        {/* Rank Filter */}
-        <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")}>
-          <SelectTrigger id="rank-filter" className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
-            <SelectValue placeholder="Rank" />
-          </SelectTrigger>
-          <SelectContent>
-            {RANKS.map((r) => (
-              <SelectItem key={r} value={r}>{r}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Rank Filter — PRO/SCOUT only */}
+        <div className={`relative ${!isPro ? "opacity-50 pointer-events-none" : ""}`}>
+          {!isPro && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
+          <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")} disabled={!isPro}>
+            <SelectTrigger className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
+              <SelectValue placeholder="Rank" />
+            </SelectTrigger>
+            <SelectContent>
+              {RANKS.map((r) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        {/* Min Score Filter */}
-        <div className="relative w-full md:w-44">
-          <Sliders className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* Min Score Filter — PRO/SCOUT only */}
+        <div className={`relative w-full md:w-44 ${!isPro ? "opacity-50 pointer-events-none" : ""}`}>
+          {!isPro
+            ? <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            : <Sliders className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          }
           <Input
-            id="min-score-filter"
             type="number"
             min={0}
             max={100}
@@ -122,20 +169,24 @@ export default function FeedPage() {
             className="pl-10 h-10 rounded-lg bg-muted/50 border-border/50"
             value={minScore}
             onChange={(e) => setMinScore(e.target.value)}
+            disabled={!isPro}
           />
         </div>
 
-        {/* Sort By */}
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")}>
-          <SelectTrigger id="sort-filter" className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
-            <SelectValue placeholder="Ordenar por" />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Sort By — PRO/SCOUT only */}
+        <div className={`relative ${!isPro ? "opacity-50 pointer-events-none" : ""}`}>
+          {!isPro && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")} disabled={!isPro}>
+            <SelectTrigger className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Grid of Players */}
@@ -152,17 +203,24 @@ export default function FeedPage() {
             >
               <Card className="group relative overflow-hidden bg-card/40 border-border/50 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 backdrop-blur-sm">
 
-                {/* AI Score Badge */}
+                {/* AI Score Badge — PRO/SCOUT only */}
                 <div className="absolute top-0 right-0 p-4">
                   <div className="flex flex-col items-end">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">
                       AI Score
                     </div>
-                    <div className={`text-2xl font-black ${
-                      player.score >= 70 ? "text-emerald-400" : player.score >= 45 ? "text-amber-400" : "text-primary"
-                    } drop-shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]`}>
-                      {player.score > 0 ? player.score : "—"}
-                    </div>
+                    {isPro ? (
+                      <div className={`text-2xl font-black ${
+                        player.score >= 70 ? "text-emerald-400" : player.score >= 45 ? "text-amber-400" : "text-primary"
+                      }`}>
+                        {player.score > 0 ? player.score : "—"}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-muted-foreground/40">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span className="text-sm font-bold">PRO</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -174,35 +232,52 @@ export default function FeedPage() {
                   </Avatar>
                   <div className="space-y-1">
                     <h3 className="font-bold text-lg leading-none">{player.nickname}</h3>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] uppercase font-bold ${getRankColor(player.rank)}`}
-                    >
-                      {player.rank}
-                    </Badge>
+                    {isPro ? (
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] uppercase font-bold ${getRankColor(player.rank)}`}
+                      >
+                        {player.rank}
+                      </Badge>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/50">
+                        <Lock className="h-2.5 w-2.5" /> Rank (PRO)
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
 
-                <CardContent className="grid grid-cols-3 gap-2 py-3 text-center border-y border-border/30 bg-muted/10">
-                  <div className="space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase">Partidas</div>
-                    <div className="font-bold text-sm">{player.matches}</div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase">Vitórias</div>
-                    <div className="font-bold text-sm text-emerald-400">{player.wins}</div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-[10px] text-muted-foreground uppercase">Win Rate</div>
-                    <div className="font-bold text-sm">{player.winRate}</div>
-                  </div>
-                </CardContent>
+                {/* Stats — PRO/SCOUT only */}
+                {isPro ? (
+                  <CardContent className="grid grid-cols-3 gap-2 py-3 text-center border-y border-border/30 bg-muted/10">
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] text-muted-foreground uppercase">Partidas</div>
+                      <div className="font-bold text-sm">{player.matches}</div>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] text-muted-foreground uppercase">Vitórias</div>
+                      <div className="font-bold text-sm text-emerald-400">{player.wins}</div>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] text-muted-foreground uppercase">Win Rate</div>
+                      <div className="font-bold text-sm">{player.winRate}</div>
+                    </div>
+                  </CardContent>
+                ) : (
+                  <CardContent className="py-3 text-center border-y border-border/30 bg-muted/10">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground/50 text-xs py-1">
+                      <Lock className="h-3 w-3" />
+                      <span>Estatísticas disponíveis no Plano PRO</span>
+                    </div>
+                  </CardContent>
+                )}
 
                 <CardFooter className="p-4 flex justify-between items-center group-hover:bg-primary/5 transition-colors">
                   <div className="flex gap-2 items-center">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[10px] text-muted-foreground uppercase font-medium">Ativo</span>
                   </div>
+                  {/* Profile link — visible for all logged in users, but SCOUT gets full data */}
                   <Link
                     href={`/profile/${player.id}`}
                     className={buttonVariants({

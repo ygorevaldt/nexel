@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { Sparkles, Trophy, BrainCircuit, ChevronRight, Star, Target } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { useSession } from "next-auth/react";
 
 export default function Home() {
+  const { data: session } = useSession();
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* Hero Section */}
@@ -28,15 +31,17 @@ export default function Home() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4">
-          <Link
-            href="/register"
-            className={buttonVariants({
-              size: "lg",
-              className: "h-12 px-8 text-lg rounded-full",
-            })}
-          >
-            Criar Perfil Grátis <ChevronRight className="ml-2 h-4 w-4" />
-          </Link>
+          {!session && (
+            <Link
+              href="/register"
+              className={buttonVariants({
+                size: "lg",
+                className: "h-12 px-8 text-lg rounded-full",
+              })}
+            >
+              Criar Perfil Grátis <ChevronRight className="ml-2 h-4 w-4" />
+            </Link>
+          )}
           <Link
             href="/feed"
             className={buttonVariants({

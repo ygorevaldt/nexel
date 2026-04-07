@@ -28,6 +28,11 @@ export interface IProfile extends Document {
   };
   /** URL of the player's best gameplay clip, shown in the Scout View */
   highlight_video_url?: string;
+  /**
+   * Up to 5 AiAnalysis IDs the player chose to highlight for Scouts.
+   * These are shown prominently on the player's public profile.
+   */
+  highlighted_analysis_ids: mongoose.Types.ObjectId[];
   /** History of AI scores for evolution charts on the dashboard */
   ai_score_history: IAiScoreEntry[];
   metrics: {
@@ -58,6 +63,7 @@ const ProfileSchema: Schema<IProfile> = new Schema(
       whatsapp: String,
     },
     highlight_video_url: { type: String },
+    highlighted_analysis_ids: [{ type: Schema.Types.ObjectId, ref: 'AiAnalysis' }],
     ai_score_history: [
       {
         score: { type: Number, required: true },
