@@ -1,8 +1,8 @@
-# Nexel Player
+# Nexel
 
 > **Um ecossistema de performance profissional e descoberta de talentos para jogadores de Free Fire.**
 
-O **Nexel Player** é uma plataforma SaaS alimentada por IA desenvolvida para profissionalizar o cenário de e-sports. O ecossistema permite que jogadores elevem seu nível técnico usando análise avançada de visão computacional, compitam em desafios de arena e construam um portfólio rico em métricas para atrair o radar de olheiros e organizações competitivas.
+O **Nexel** é uma plataforma SaaS alimentada por IA desenvolvida para profissionalizar o cenário de e-sports. O ecossistema permite que jogadores elevem seu nível técnico usando análise avançada de visão computacional, compitam em desafios de arena e construam um portfólio rico em métricas para atrair o radar de olheiros e organizações competitivas.
 
 ---
 
@@ -61,7 +61,7 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ## 🤖 Pipeline de IA e Performance
 
-O **Nexel Player** resolve o desafio de processar vídeos em infraestrutura serverless através de uma estratégia híbrida:
+O **Nexel** resolve o desafio de processar vídeos em infraestrutura serverless através de uma estratégia híbrida:
 
 1.  **Extração Local:** O FFmpeg.wasm extrai frames-chave no navegador do usuário.
 2.  **Payload Otimizado:** Apenas frames essenciais são enviados para a API, reduzindo drasticamente o consumo de banda e tokens.
