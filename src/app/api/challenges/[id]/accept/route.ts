@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findChallengeById, acceptChallenge } from '@/repositories/ChallengeRepository';
-import { findUserById, updateWalletBalance } from '@/repositories/UserRepository';
-import { createTransaction } from '@/repositories/TransactionRepository';
 
+/**
+ * POST /api/challenges/[id]/accept
+ *
+ * Accepts an open challenge. No financial stake required — this is pure social matchmaking.
+ * The challenge moves from OPEN → ACCEPTED → IN_PROGRESS → COMPLETED.
+ * RANKED results will update the Global Score leaderboard.
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -27,31 +32,13 @@ export async function POST(
       return NextResponse.json({ error: 'Você não pode aceitar seu próprio desafio' }, { status: 400 });
     }
 
-    const fee = challenge.stake_amount * 0.1;
-    const totalCost = challenge.stake_amount + fee;
-
-    const user = await findUserById(session.user.id);
-    if (!user || user.wallet_balance < totalCost) {
-      return NextResponse.json({ error: 'Saldo insuficiente' }, { status: 402 });
-    }
-
-    await updateWalletBalance(session.user.id, -totalCost);
     const updated = await acceptChallenge(id, session.user.id);
 
-    await createTransaction({
-      user_id: session.user.id,
-      type: 'CHALLENGE_STAKE',
-      amount: -challenge.stake_amount,
-      reference_id: id,
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message: `Desafio ${challenge.matchType} de ${challenge.type} aceito! Boa sorte!`,
     });
-    await createTransaction({
-      user_id: session.user.id,
-      type: 'CHALLENGE_FEE',
-      amount: -fee,
-      reference_id: id,
-    });
-
-    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error('[POST /api/challenges/[id]/accept]', error);
     return NextResponse.json({ error: 'Falha ao aceitar desafio' }, { status: 500 });

@@ -8,7 +8,7 @@ import {
   Shield,
   Sparkles,
   Trophy,
-  Wallet,
+  Crown,
   User as UserIcon,
   Menu,
   X,
@@ -35,8 +35,8 @@ export function Navbar() {
   const links = [
     { href: "/feed", label: "Talentos", icon: Sparkles },
     { href: "/dashboard", label: "Coach IA", icon: BrainCircuit },
-    { href: "/challenges", label: "Desafios", icon: Trophy },
-    { href: "/wallet", label: "Carteira", icon: Wallet },
+    { href: "/ranking", label: "Ranking", icon: Trophy },
+    { href: "/subscription", label: "Planos", icon: Crown },
   ];
 
   // Close user menu when clicking outside
@@ -68,7 +68,7 @@ export function Navbar() {
         <Link href="/" className="flex items-center space-x-2">
           <Shield className="h-6 w-6 text-primary drop-shadow-[0_0_10px_rgba(255,179,0,0.5)]" />
           <span className="font-black tracking-tight text-lg uppercase">
-            FF Elite Hub
+            Nexel Player
           </span>
         </Link>
 
@@ -133,7 +133,7 @@ export function Navbar() {
                     <p className="text-sm font-semibold truncate">{session.user?.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{session.user?.email}</p>
                     <span className="inline-flex mt-1.5 items-center rounded-sm bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                      {(session.user as any)?.role || "FREE"}
+                      {(session.user as any)?.subscriptionStatus || (session.user as any)?.role || "FREE"}
                     </span>
                   </div>
                   <div className="py-1">

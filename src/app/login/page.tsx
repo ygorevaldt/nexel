@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
@@ -41,7 +41,6 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center space-y-2">
           <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
@@ -116,7 +115,16 @@ export default function LoginPage() {
             Criar conta grátis
           </Link>
         </p>
-      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4">
+      <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />}>
+        <LoginContent />
+      </Suspense>
     </div>
   );
 }

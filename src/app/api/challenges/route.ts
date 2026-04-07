@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findOpenChallenges, findChallengesByUser, createChallenge } from '@/repositories/ChallengeRepository';
-import { findUserById, updateWalletBalance } from '@/repositories/UserRepository';
-import { createTransaction } from '@/repositories/TransactionRepository';
 import { z } from 'zod';
 
 const createSchema = z.object({
   type: z.enum(['1v1', '4v4']),
-  stake_amount: z.number().positive(),
+  matchType: z.enum(['RANKED', 'FRIENDLY']).default('RANKED'),
+  difficulty: z.enum(['BRONZE', 'SILVER', 'GOLD', 'DIAMOND']),
 });
 
 export async function GET(req: NextRequest) {
   try {
     const tab = req.nextUrl.searchParams.get('tab');
+    const difficulty = req.nextUrl.searchParams.get('difficulty') as
+      | 'BRONZE' | 'SILVER' | 'GOLD' | 'DIAMOND'
+      | null;
     const session = await auth();
 
     if (tab === 'history') {
@@ -23,13 +25,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ data: challenges });
     }
 
-    const challenges = await findOpenChallenges(20);
+    const challenges = await findOpenChallenges(
+      20,
+      difficulty || undefined
+    );
 
     const data = challenges.map((c) => ({
       id: String(c._id),
       creator: (c.creator_id as unknown as { name?: string })?.name ?? 'Unknown',
       type: c.type,
-      stake: c.stake_amount,
+      matchType: c.matchType,
+      difficulty: c.difficulty,
       status: c.status,
       createdAt: c.createdAt,
     }));
@@ -54,34 +60,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { type, stake_amount } = parsed.data;
-    const fee = stake_amount * 0.1;
-    const totalCost = stake_amount + fee;
-
-    const user = await findUserById(session.user.id);
-    if (!user || user.wallet_balance < totalCost) {
-      return NextResponse.json({ error: 'Saldo insuficiente' }, { status: 402 });
-    }
-
-    await updateWalletBalance(session.user.id, -totalCost);
+    const { type, matchType, difficulty } = parsed.data;
 
     const challenge = await createChallenge({
       creator_id: session.user.id,
       type,
-      stake_amount,
-    });
-
-    await createTransaction({
-      user_id: session.user.id,
-      type: 'CHALLENGE_STAKE',
-      amount: -stake_amount,
-      reference_id: String(challenge._id),
-    });
-    await createTransaction({
-      user_id: session.user.id,
-      type: 'CHALLENGE_FEE',
-      amount: -fee,
-      reference_id: String(challenge._id),
+      matchType,
+      difficulty,
     });
 
     return NextResponse.json({ success: true, data: challenge }, { status: 201 });

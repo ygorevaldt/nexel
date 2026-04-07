@@ -1,38 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { updateWalletBalance } from '@/repositories/UserRepository';
-import { createTransaction } from '@/repositories/TransactionRepository';
-import { z } from 'zod';
+import { NextResponse } from 'next/server';
 
-const depositSchema = z.object({
-  amount: z.number().positive().max(10000),
-});
-
-export async function POST(req: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const parsed = depositSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-    }
-
-    const { amount } = parsed.data;
-
-    const user = await updateWalletBalance(session.user.id, amount);
-    await createTransaction({
-      user_id: session.user.id,
-      type: 'DEPOSIT',
-      amount,
-    });
-
-    return NextResponse.json({ success: true, balance: user?.wallet_balance });
-  } catch (error) {
-    console.error('[POST /api/wallet/deposit]', error);
-    return NextResponse.json({ error: 'Falha ao processar depósito' }, { status: 500 });
-  }
+/**
+ * DEPRECATED — This route has been removed as part of the pivot from gambling to SaaS.
+ * 
+ * Wallet deposits (PIX/cash-in) are no longer supported.
+ * Users upgrade their account via Stripe subscriptions:
+ *   POST /api/checkout/session  (to be implemented when Stripe is configured)
+ *   GET  /api/subscription      (current plan status)
+ */
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: 'Esta funcionalidade foi descontinuada. Use /api/subscription para gerenciar seu plano.',
+      redirect: '/subscription',
+    },
+    { status: 410 } // 410 Gone
+  );
 }

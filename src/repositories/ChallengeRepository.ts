@@ -2,9 +2,14 @@ import dbConnect from '@/lib/db';
 import { Challenge, IChallenge } from '@/models/Challenge';
 import mongoose from 'mongoose';
 
-export async function findOpenChallenges(limit = 20): Promise<IChallenge[]> {
+export async function findOpenChallenges(
+  limit = 20,
+  difficulty?: IChallenge['difficulty']
+): Promise<IChallenge[]> {
   await dbConnect();
-  return Challenge.find({ status: 'OPEN' })
+  const query: Record<string, unknown> = { status: 'OPEN' };
+  if (difficulty) query.difficulty = difficulty;
+  return Challenge.find(query)
     .populate('creator_id', 'name')
     .sort({ createdAt: -1 })
     .limit(limit)
@@ -21,6 +26,18 @@ export async function findChallengesByUser(userId: string): Promise<IChallenge[]
     .lean();
 }
 
+export async function findChallengesByDifficulty(
+  difficulty: IChallenge['difficulty'],
+  limit = 20
+): Promise<IChallenge[]> {
+  await dbConnect();
+  return Challenge.find({ difficulty, status: 'OPEN' })
+    .populate('creator_id', 'name')
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+}
+
 export async function findChallengeById(id: string): Promise<IChallenge | null> {
   await dbConnect();
   return Challenge.findById(id).lean();
@@ -29,7 +46,8 @@ export async function findChallengeById(id: string): Promise<IChallenge | null> 
 export async function createChallenge(data: {
   creator_id: string;
   type: '1v1' | '4v4';
-  stake_amount: number;
+  matchType: 'RANKED' | 'FRIENDLY';
+  difficulty: IChallenge['difficulty'];
 }): Promise<IChallenge> {
   await dbConnect();
   return Challenge.create(data);

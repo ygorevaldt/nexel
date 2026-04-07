@@ -32,16 +32,19 @@ export async function extractFrames(file: File, intervalSeconds: number = 3): Pr
     await ffmpeg.createDir("out");
 
     // Run ffmpeg to extract frames
-    // -i input -vf fps=1/3 -vsync vfr out/out%d.jpg
+    // Optimization: Cap frames at ~12 to reduce tokens/cost while keeping enough context
+    const maxFrames = 12;
+    const calculatedInterval = Math.max(intervalSeconds, Math.floor(duration / (maxFrames - 1)));
+    
     await ffmpeg.exec([
       '-i', inputName,
-      '-vf', `fps=1/${intervalSeconds}`,
+      '-vf', `fps=1/${calculatedInterval},scale=1280:-1`, // Also scale to 720p for cost/size balance
       '-vsync', 'vfr',
       'out/frame_%d.jpg'
     ]);
 
     // Read the frames back
-    const fileCount = Math.floor(duration / intervalSeconds) + 1;
+    const fileCount = Math.min(maxFrames, Math.floor(duration / calculatedInterval) + 1);
     
     for (let i = 1; i <= fileCount; i++) {
         try {

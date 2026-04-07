@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
       freefire_id: freefire_id.trim(),
       passwordHash,
       role: 'FREE',
-      wallet_balance: 0,
+      subscriptionStatus: 'FREE',
+      accountType: 'PLAYER',
     });
 
     return NextResponse.json({ success: true }, { status: 201 });

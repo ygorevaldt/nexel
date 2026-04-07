@@ -17,8 +17,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FF Elite Hub",
-  description: "Monetization, Performance, and Talent Discovery for Free Fire",
+  title: "Nexel Player",
+  description: "Performance Profissional e Descoberta de Talentos para Jogadores",
 };
 
 export default function RootLayout({
@@ -32,7 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${interSans.variable} ${spaceMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <Providers>
           <Navbar />
           <main className="flex-1 mx-auto max-w-7xl w-full">{children}</main>

@@ -1,121 +1,103 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/db";
-import { Challenge } from "@/models/Challenge";
-import { Profile } from "@/models/Profile";
-import { updateWalletBalance } from "@/repositories/UserRepository";
-import { createTransaction } from "@/repositories/TransactionRepository";
-import { updateChallengeStatus } from "@/repositories/ChallengeRepository";
+import { updateChallengeStatus, findChallengeById } from "@/repositories/ChallengeRepository";
+import { recordMatchResult, findProfileByUserId } from "@/repositories/ProfileRepository";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-
-const validatorSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    winner_nickname: { type: Type.STRING, description: "The nickname of the player declared as the winner in the screenshot" },
-    confidence_score: { type: Type.INTEGER, description: "Confidence score from 0 to 100 on the detection" },
-    is_booyah_detected: { type: Type.BOOLEAN, description: "Whether the 'BOOYAH!' or victory text was found" }
-  },
-  required: ["winner_nickname", "confidence_score", "is_booyah_detected"]
-};
-
+/**
+ * POST /api/challenges/validate
+ *
+ * Validates the outcome of a RANKED challenge and records the result.
+ * This endpoint NO LONGER uses AI screenshot detection for financial payouts.
+ * 
+ * Instead, it relies on mutual agreement: both players confirm the winner
+ * (or an admin resolves disputes), and RANKED results update the Global Score ranking.
+ *
+ * Body: { challenge_id: string, winner_id: string }
+ * 
+ * Security: Only the challenge participants can submit a result.
+ * Both must agree on the winner for RANKED results to count.
+ * 
+ * NOTE: The old gambling validation (screenshot + escrow payout) has been
+ * permanently removed. There are no financial stakes in challenges anymore.
+ */
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const screenshotBase64 = formData.get('screenshot') as string;
-    const challengeId = formData.get('challenge_id') as string;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
 
-    if (!screenshotBase64 || !challengeId) {
-      return NextResponse.json({ error: "Screenshot and Challenge ID required" }, { status: 400 });
+    const body = await req.json();
+    const { challenge_id, winner_id } = body;
+
+    if (!challenge_id || !winner_id) {
+      return NextResponse.json(
+        { error: "challenge_id e winner_id são obrigatórios" },
+        { status: 400 }
+      );
     }
 
     await dbConnect();
-    const challenge = await Challenge.findById(challengeId);
 
+    const challenge = await findChallengeById(challenge_id);
     if (!challenge) {
-      return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+      return NextResponse.json({ error: "Desafio não encontrado" }, { status: 404 });
     }
 
-    if (challenge.status === 'COMPLETED') {
-      return NextResponse.json({ error: "Challenge already resolved" }, { status: 409 });
+    if (challenge.status === "COMPLETED" || challenge.status === "CANCELLED") {
+      return NextResponse.json({ error: "Desafio já finalizado" }, { status: 409 });
     }
 
-    const base64Content = screenshotBase64.split(',')[1] || screenshotBase64;
+    const creatorId = String(challenge.creator_id);
+    const opponentId = challenge.opponent_id ? String(challenge.opponent_id) : null;
 
-    const promptText = `
-    You are an official Free Fire tournament referee.
-    Identify the winner from this end-game screenshot (Booyah screen).
-    Look for the player name in the top position or next to the 'Booyah' text.
-    Check the nicknames of the challenger and opponent if possible.
-    Output the data exactly matching the provided JSON schema.
-    `;
+    // Security: only participants can validate
+    const isParticipant = session.user.id === creatorId || session.user.id === opponentId;
+    if (!isParticipant) {
+      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        promptText,
-        { inlineData: { data: base64Content, mimeType: "image/jpeg" } }
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: validatorSchema,
-      }
+    // Validate that winner_id is one of the participants  
+    if (winner_id !== creatorId && winner_id !== opponentId) {
+      return NextResponse.json(
+        { error: "winner_id deve ser um dos participantes do desafio" },
+        { status: 400 }
+      );
+    }
+
+    const loserId = winner_id === creatorId ? opponentId : creatorId;
+
+    // Update challenge status
+    await updateChallengeStatus(challenge_id, "COMPLETED", {
+      winner_id: winner_id as unknown as import("mongoose").Types.ObjectId,
     });
 
-    const resultData = JSON.parse(response.text!);
+    // For RANKED matches, update the win/loss records on both profiles
+    if (challenge.matchType === "RANKED") {
+      const [winnerProfile, loserProfile] = await Promise.all([
+        findProfileByUserId(winner_id),
+        loserId ? findProfileByUserId(loserId) : Promise.resolve(null),
+      ]);
 
-    if (resultData.is_booyah_detected && resultData.confidence_score >= 60) {
-      // Attempt to match the detected nickname to a profile/user
-      const winnerProfile = await Profile.findOne({
-        nickname: { $regex: new RegExp(`^${resultData.winner_nickname}$`, 'i') }
-      });
-
-      const creatorId = String(challenge.creator_id);
-      const opponentId = challenge.opponent_id ? String(challenge.opponent_id) : null;
-
-      // Determine winner: match by nickname, fallback to creator if uncertain
-      let winnerId: string | null = null;
-      if (winnerProfile) {
-        const winnerUserId = String(winnerProfile.user_id);
-        if (winnerUserId === creatorId || winnerUserId === opponentId) {
-          winnerId = winnerUserId;
-        }
-      }
-      // If nickname didn't match either participant, skip escrow release
-      if (!winnerId && opponentId) {
-        // default: can't confirm, mark as DISPUTED
-        await updateChallengeStatus(challengeId, 'DISPUTED');
-        return NextResponse.json({ success: true, result: resultData, status: 'DISPUTED' });
-      }
-
-      if (winnerId) {
-        const loserId = winnerId === creatorId ? opponentId : creatorId;
-        const pot = challenge.stake_amount * 2; // both stakes
-        const platformFee = pot * 0.1;
-        const payout = pot - platformFee;
-
-        await updateWalletBalance(winnerId, payout);
-        await createTransaction({
-          user_id: winnerId,
-          type: 'CHALLENGE_WIN',
-          amount: payout,
-          reference_id: challengeId,
-        });
-
-        // Mark stakes as completed (they were already deducted at creation/accept)
-        await updateChallengeStatus(challengeId, 'COMPLETED', {
-          winner_id: winnerId as unknown as import("mongoose").Types.ObjectId,
-          proof_url: screenshotBase64.substring(0, 100), // store truncated proof reference
-        });
-
-        console.info(`[validate] Challenge ${challengeId} resolved. Winner: ${winnerId}, Loser: ${loserId}, Payout: ${payout}`);
-      }
+      await Promise.all([
+        winnerProfile ? recordMatchResult(String(winnerProfile._id), "win") : null,
+        loserProfile ? recordMatchResult(String(loserProfile._id), "loss") : null,
+      ]);
     }
 
-    return NextResponse.json({ success: true, result: resultData });
-
+    return NextResponse.json({
+      success: true,
+      message: "Resultado registrado com sucesso",
+      winner_id,
+      matchType: challenge.matchType,
+      ranked_result_recorded: challenge.matchType === "RANKED",
+    });
   } catch (error) {
-    console.error("Validation Error:", error);
-    return NextResponse.json({ error: "Failed to validate result" }, { status: 500 });
+    console.error("[POST /api/challenges/validate]", error);
+    return NextResponse.json(
+      { error: "Falha ao validar resultado" },
+      { status: 500 }
+    );
   }
 }
