@@ -56,7 +56,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="container max-w-4xl py-16 px-4 space-y-6">
+      <div className="container max-w-4xl py-8 md:py-16 px-4 space-y-6">
         <div className="h-48 rounded-2xl bg-muted/20 animate-pulse" />
         <div className="h-64 rounded-2xl bg-muted/20 animate-pulse" />
       </div>
@@ -65,7 +65,7 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="container max-w-4xl py-16 px-4 text-center text-muted-foreground">
+      <div className="container max-w-4xl py-8 md:py-16 px-4 text-center text-muted-foreground">
         <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
         <h2 className="text-xl font-bold">Perfil não encontrado</h2>
       </div>
@@ -80,14 +80,14 @@ export default function ProfilePage() {
       : "text-red-400";
 
   return (
-    <div className="container max-w-4xl py-10 px-4 md:px-8 space-y-6">
+    <div className="container max-w-4xl py-5 md:py-10 px-4 md:px-8 space-y-4 md:space-y-6">
 
       {/* Hero Card */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <Card className="relative overflow-hidden bg-card/50 border-border/50">
           <div className="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
 
-          <CardContent className="relative pt-8 pb-6">
+          <CardContent className="relative pt-5 md:pt-8 pb-4 md:pb-6">
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
               {/* Avatar + Name */}
               <div className="flex items-center gap-5">
@@ -142,7 +142,7 @@ export default function ProfilePage() {
         </Card>
       </motion.div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4 md:gap-6">
 
         {/* Stats Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -242,16 +242,16 @@ export default function ProfilePage() {
                 )}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-4 md:space-y-5">
               {profile.latest_analysis.recruiter_feedback && (
                 <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
                   <p className="text-sm text-muted-foreground leading-relaxed italic">
-                    "{profile.latest_analysis.recruiter_feedback}"
+                    &quot;{profile.latest_analysis.recruiter_feedback}&quot;
                   </p>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {profile.latest_analysis.strengths.length > 0 && (
                   <div>
                     <p className="text-xs font-bold uppercase text-emerald-400 mb-2">Pontos Fortes</p>

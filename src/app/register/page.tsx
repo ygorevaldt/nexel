@@ -61,7 +61,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-md space-y-4 md:space-y-6">
         <div className="flex flex-col items-center text-center space-y-2">
           <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
             <Shield className="h-6 w-6 text-primary" />

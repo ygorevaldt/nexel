@@ -294,7 +294,7 @@ export default function DashboardPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="container max-w-7xl mx-auto py-10 px-4 space-y-4">
+      <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 space-y-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-32 rounded-2xl bg-muted/20 animate-pulse" />
         ))}
@@ -307,7 +307,7 @@ export default function DashboardPage() {
   // FREE users: show upgrade wall
   if (!isPro) {
     return (
-      <div className="container max-w-7xl mx-auto py-24 px-4 flex flex-col items-center justify-center text-center gap-6">
+      <div className="container max-w-7xl mx-auto py-12 md:py-24 px-4 flex flex-col items-center justify-center text-center gap-5 md:gap-6">
         <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
           <Lock className="h-10 w-10 text-primary" />
         </div>
@@ -324,10 +324,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-8">
+    <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-8">
 
       {/* Header Profile Section */}
-      <div className="flex flex-col md:flex-row gap-6 md:items-center justify-between bg-card p-6 md:p-8 rounded-2xl border border-border shadow-sm">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:items-center justify-between bg-card p-4 md:p-8 rounded-2xl border border-border shadow-sm">
         <div className="flex items-center gap-6">
           <Avatar className="h-20 w-20 ring-4 ring-primary/20">
             <AvatarImage src={session?.user?.image || ""} />
@@ -390,7 +390,7 @@ export default function DashboardPage() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-3 mb-8 h-12">
+        <TabsList className="grid w-full max-w-lg grid-cols-3 mb-5 md:mb-8 h-12">
           <TabsTrigger value="overview" className="h-full rounded-lg">Visão Geral</TabsTrigger>
           <TabsTrigger value="gallery" className="h-full rounded-lg">
             Minhas Gameplays
@@ -399,9 +399,9 @@ export default function DashboardPage() {
         </TabsList>
 
         {/* ─── Overview Tab ─── */}
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-4 md:space-y-6">
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
               { label: "Movimentação", icon: Activity, value: analysis?.movement_score },
               { label: "Uso de Gelo", icon: ShieldAlert, value: analysis?.gloo_wall_usage },
@@ -432,7 +432,7 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:gap-6 md:grid-cols-2">
             {/* Recruiter Feedback Card */}
             <Card>
               <CardHeader>
@@ -454,7 +454,7 @@ export default function DashboardPage() {
                       className="space-y-4"
                     >
                       <p className="text-sm text-muted-foreground leading-relaxed italic">
-                        "{analysis.recruiter_feedback.substring(0, 300)}..."
+                        &quot;{analysis.recruiter_feedback.substring(0, 300)}...&quot;
                       </p>
                       {analysis.recommended_playstyle && (
                         <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
@@ -532,7 +532,7 @@ export default function DashboardPage() {
         </TabsContent>
 
         {/* ─── Gallery Tab ─── */}
-        <TabsContent value="gallery" className="space-y-6">
+        <TabsContent value="gallery" className="space-y-4 md:space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Minhas Gameplays</h2>
@@ -546,13 +546,13 @@ export default function DashboardPage() {
           </div>
 
           {(profileData?.analyses.length ?? 0) === 0 ? (
-            <div className="py-20 text-center">
+            <div className="py-10 md:py-20 text-center">
               <Video className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
               <h3 className="text-xl font-bold text-muted-foreground">Nenhuma gameplay enviada ainda.</h3>
               <p className="text-sm text-muted-foreground">Envie um clipe na aba Visão Geral para começar.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {profileData?.analyses.map((item, idx) => (
                 <motion.div
                   key={item.id}

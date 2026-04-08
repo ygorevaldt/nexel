@@ -33,10 +33,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${interSans.variable} ${spaceMono.variable} h-full antialiased`}
     >
-      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground font-sans">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground font-sans overflow-x-hidden">
         <Providers>
           <Navbar />
-          <main className="flex-1 mx-auto max-w-7xl w-full">{children}</main>
+          <main className="flex-1 w-full min-w-0">{children}</main>
           <Footer />
           <Toaster />
         </Providers>

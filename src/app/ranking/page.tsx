@@ -85,7 +85,7 @@ export default function RankingPage() {
 
   if (status === "loading") {
     return (
-      <div className="container max-w-7xl mx-auto py-10 px-4 space-y-4">
+      <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 space-y-4">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="h-14 rounded-lg bg-muted/20 animate-pulse" />
         ))}
@@ -98,7 +98,7 @@ export default function RankingPage() {
   // FREE users: show upsell wall
   if (!canAccess) {
     return (
-      <div className="container max-w-7xl mx-auto py-24 px-4 flex flex-col items-center justify-center text-center gap-6">
+      <div className="container max-w-7xl mx-auto py-12 md:py-24 px-4 flex flex-col items-center justify-center text-center gap-5 md:gap-6">
         <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
           <Lock className="h-10 w-10 text-primary" />
         </div>
@@ -115,7 +115,7 @@ export default function RankingPage() {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-8">
+    <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-8">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -161,7 +161,7 @@ export default function RankingPage() {
 
       {/* Top 3 Podium */}
       {entries.length >= 3 && (
-        <div className="grid grid-cols-3 gap-4 mb-2">
+        <div className="grid grid-cols-3 gap-2 md:gap-4 mb-2">
           {[entries[1], entries[0], entries[2]].map((entry, pIdx) => {
             const realPos = pIdx === 0 ? 2 : pIdx === 1 ? 1 : 3;
             const heights = ["h-24", "h-32", "h-20"];

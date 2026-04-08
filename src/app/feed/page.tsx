@@ -94,7 +94,7 @@ export default function FeedPage() {
 
   if (status === "loading") {
     return (
-      <div className="container max-w-7xl mx-auto py-10 px-4 space-y-4">
+      <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 space-y-4">
         {[...Array(6)].map((_, i) => (
           <div key={i} className="h-40 rounded-2xl bg-muted/20 animate-pulse" />
         ))}
@@ -105,7 +105,7 @@ export default function FeedPage() {
   if (status === "unauthenticated") return null;
 
   return (
-    <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-8">
+    <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-8">
 
       {/* Header */}
       <div className="space-y-2">
@@ -190,7 +190,7 @@ export default function FeedPage() {
       </div>
 
       {/* Grid of Players */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <AnimatePresence>
           {profiles.map((player, idx) => (
             <motion.div
@@ -296,7 +296,7 @@ export default function FeedPage() {
       </div>
 
       {!loading && profiles.length === 0 && (
-        <div className="py-20 text-center">
+        <div className="py-10 md:py-20 text-center">
           <Trophy className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
           <h3 className="text-xl font-bold text-muted-foreground">Nenhum talento encontrado.</h3>
           <p className="text-muted-foreground">Tente outros filtros ou aguarde novos jogadores.</p>
