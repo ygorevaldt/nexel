@@ -9,7 +9,6 @@ import {
   Sparkles,
   Trophy,
   Crown,
-  User as UserIcon,
   Menu,
   X,
   LogOut,
@@ -107,7 +106,13 @@ export function Navbar() {
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
           {isLoading ? (
-            <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+            <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-1 py-1 pr-3 animate-pulse">
+              <div className="h-8 w-8 rounded-full bg-primary/20" />
+              <div className="hidden sm:flex flex-col gap-1.5">
+                <div className="h-2.5 w-20 rounded-full bg-primary/20" />
+                <div className="h-2 w-12 rounded-full bg-primary/10" />
+              </div>
+            </div>
           ) : session ? (
             /* Logged in: avatar dropdown */
             <div className="relative" ref={userMenuRef}>
@@ -133,7 +138,7 @@ export function Navbar() {
                     <p className="text-sm font-semibold truncate">{session.user?.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{session.user?.email}</p>
                     <span className="inline-flex mt-1.5 items-center rounded-sm bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                      {(session.user as any)?.subscriptionStatus || (session.user as any)?.role || "FREE"}
+                      {session.user?.subscriptionStatus || session.user?.role || "FREE"}
                     </span>
                   </div>
                   <div className="py-1">
