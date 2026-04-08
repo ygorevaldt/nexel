@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npm install:*)",
-      "Bash(npm run:*)",
-      "Read(//c/Users/ygore/Documents/1-projetos/nexel-player/**)"
-    ]
-  }
-}
