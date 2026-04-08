@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -19,7 +19,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -54,7 +54,7 @@ export default function RegisterPage() {
     if (result?.error) {
       setError("Conta criada, mas não foi possível entrar. Tente fazer login.");
     } else {
-      router.push("/dashboard");
+      router.push("/");
       router.refresh();
     }
   }
