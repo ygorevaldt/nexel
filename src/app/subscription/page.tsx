@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Crown, CheckCircle, Star, BrainCircuit, Users, Zap, Calendar, History } from "lucide-react";
+import { Crown, CheckCircle, Star, BrainCircuit, Users, Zap, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -110,7 +110,7 @@ export default function SubscriptionPage() {
 
   if (status === "loading" || (status === "authenticated" && loading)) {
     return (
-      <div className="container max-w-7xl mx-auto py-16 px-4 space-y-6">
+      <div className="container max-w-7xl mx-auto py-8 md:py-16 px-4 space-y-6">
         {[1, 2].map((i) => (
           <div key={i} className="h-64 rounded-2xl bg-muted/20 animate-pulse" />
         ))}
@@ -119,10 +119,10 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-10">
+    <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-10">
 
       {/* Header */}
-      <div className="text-center space-y-3 pb-4">
+      <div className="text-center space-y-6 py-8 md:py-4 md:pb-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm text-primary">
           <Crown className="h-4 w-4" />
           Planos & Assinaturas
@@ -166,7 +166,7 @@ export default function SubscriptionPage() {
       )}
 
       {/* Plan Cards */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4 md:gap-6 items-stretch">
         {AVAILABLE_PLANS.map((plan, idx) => {
           const isCurrentPlan = currentStatus === plan.id;
           const planIcons = [BrainCircuit, Users];
@@ -202,8 +202,9 @@ export default function SubscriptionPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
+              className="h-full"
             >
-              <Card className={`relative overflow-hidden border-2 transition-all duration-300 ${planColors.border}`}>
+              <Card className={`relative overflow-hidden border-2 transition-all duration-300 h-full flex flex-col ${planColors.border}`}>
                 <div className={`absolute inset-0 bg-linear-to-b ${planColors.gradient} pointer-events-none`} />
 
                 <CardHeader className="relative">
@@ -225,7 +226,7 @@ export default function SubscriptionPage() {
                   <CardDescription>{plan.description}</CardDescription>
                 </CardHeader>
 
-                <CardContent className="relative space-y-6">
+                <CardContent className="relative space-y-6 flex flex-col flex-1">
                   <ul className="space-y-2.5">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-2.5 text-sm">
@@ -275,8 +276,8 @@ export default function SubscriptionPage() {
       </div>
 
       {/* Transaction History (Only visible if logged in) */}
-      {status === "authenticated" && (
-        <div className="space-y-4">
+      {status === "authenticated" && (data?.transactions.length ?? 0) > 0 && (
+        <div className="space-y-3 md:space-y-4">
           <div className="flex items-center gap-3">
             <History className="h-5 w-5 text-muted-foreground" />
             <h2 className="text-xl font-bold tracking-tight">Histórico de Pagamentos</h2>
@@ -294,42 +295,33 @@ export default function SubscriptionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.transactions.length ?? 0) === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                      Nenhum pagamento ainda
+                {data?.transactions.map((tx) => (
+                  <TableRow key={tx.id} className="hover:bg-muted/20 border-border/20 transition-colors">
+                    <TableCell className="text-muted-foreground text-xs">{tx.date}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      {tx.type.replace(/_/g, " ")}
+                    </TableCell>
+                    <TableCell>
+                      {tx.plan && (
+                        <Badge variant="outline" className="text-[10px] uppercase">{tx.plan}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] uppercase font-black ${tx.status === "COMPLETED"
+                            ? "text-emerald-400 border-emerald-400/20"
+                            : "text-amber-400 border-amber-400/20"
+                          }`}
+                      >
+                        {tx.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-black tabular-nums text-emerald-400">
+                      R$ {tx.amount.toFixed(2).replace(".", ",")}
                     </TableCell>
                   </TableRow>
-                ) : (
-                  data?.transactions.map((tx) => (
-                    <TableRow key={tx.id} className="hover:bg-muted/20 border-border/20 transition-colors">
-                      <TableCell className="text-muted-foreground text-xs">{tx.date}</TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {tx.type.replace(/_/g, " ")}
-                      </TableCell>
-                      <TableCell>
-                        {tx.plan && (
-                          <Badge variant="outline" className="text-[10px] uppercase">{tx.plan}</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant="outline"
-                          className={`text-[9px] uppercase font-black ${tx.status === "COMPLETED"
-                              ? "text-emerald-400 border-emerald-400/20"
-                              : "text-amber-400 border-amber-400/20"
-                            }`}
-                        >
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-black tabular-nums text-emerald-400">
-                        R$ {tx.amount.toFixed(2).replace(".", ",")}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           </Card>
