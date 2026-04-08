@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findUserById } from '@/repositories/UserRepository';
 import { findTransactionsByUser } from '@/repositories/TransactionRepository';
@@ -8,7 +8,7 @@ import { findTransactionsByUser } from '@/repositories/TransactionRepository';
  * Returns the current user's subscription status, Stripe IDs (masked),
  * and their subscription payment history.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {

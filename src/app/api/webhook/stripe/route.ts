@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 /**
  * POST /api/webhook/stripe
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // PLACEHOLDER: Returns 501 until Stripe is configured
-export async function POST(req: NextRequest) {
+export async function POST() {
   console.warn('[Stripe Webhook] Stripe not configured. Uncomment the production code in this file.');
   return NextResponse.json(
     { error: 'Stripe integration not yet configured. See comments in /api/webhook/stripe/route.ts' },

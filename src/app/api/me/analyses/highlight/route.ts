@@ -4,8 +4,6 @@ import mongoose from "mongoose";
 import { findProfileByUserId, toggleAnalysisHighlight } from "@/repositories/ProfileRepository";
 import { findAnalysisByIdAndProfileId } from "@/repositories/AiAnalysisRepository";
 
-const MAX_HIGHLIGHTS = 5;
-
 /**
  * POST /api/me/analyses/highlight
  * Body: { analysisId: string }

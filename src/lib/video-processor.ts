@@ -52,7 +52,7 @@ export async function extractFrames(file: File, intervalSeconds: number = 3): Pr
             const blobData = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
             const blob = new Blob([blobData], { type: 'image/jpeg' });
             frameUrls.push(URL.createObjectURL(blob));
-        } catch (e) {
+        } catch {
              // Reached the end or file doesn't exist
              break;
         }
@@ -62,9 +62,9 @@ export async function extractFrames(file: File, intervalSeconds: number = 3): Pr
     await ffmpeg.deleteFile(inputName);
     // Cleanup generated frames from ffmpeg memfs
     for (let i = 1; i <= frameUrls.length; i++) {
-        try { await ffmpeg.deleteFile(`out/frame_${i}.jpg`); } catch(e){}
+        try { await ffmpeg.deleteFile(`out/frame_${i}.jpg`); } catch {}
     }
-    try { await ffmpeg.deleteDir("out"); } catch(e){}
+    try { await ffmpeg.deleteDir("out"); } catch {}
 
     return frameUrls;
   } catch (error) {
