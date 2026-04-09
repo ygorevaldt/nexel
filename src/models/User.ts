@@ -29,8 +29,8 @@ const UserSchema: Schema<IUser> = new Schema(
     role: { type: String, enum: ['FREE', 'PRO', 'SCOUT', 'ADMIN'], default: 'FREE' },
     accountType: { type: String, enum: ['PLAYER', 'SCOUT'], default: 'PLAYER' },
     subscriptionStatus: { type: String, enum: ['FREE', 'PRO', 'SCOUT'], default: 'FREE' },
-    stripeCustomerId: { type: String, sparse: true },
-    stripeSubscriptionId: { type: String, sparse: true },
+    stripeCustomerId: { type: String },
+    stripeSubscriptionId: { type: String },
     subscriptionEndDate: { type: Date },
   },
   { timestamps: true }
