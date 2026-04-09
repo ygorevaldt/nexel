@@ -122,12 +122,6 @@ export default function DashboardPage() {
   }, [session?.user?.id]);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login?callbackUrl=/dashboard");
-    }
-  }, [status, router]);
-
-  useEffect(() => {
     if (status === "authenticated") fetchProfile();
   }, [status, fetchProfile]);
 
@@ -301,8 +295,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  if (status === "unauthenticated") return null;
 
   // FREE users: show upgrade wall
   if (!isPro) {
