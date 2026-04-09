@@ -5,21 +5,29 @@ import { getToken } from 'next-auth/jwt';
 const PROTECTED_ROUTES = ['/dashboard'];
 const PRO_ROUTES = ['/api/analyze'];
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // NextAuth v5 changed the cookie name from "next-auth.session-token" to "authjs.session-token"
+  const secure = request.nextUrl.protocol === 'https:';
+  const cookieName = secure
+    ? '__Secure-authjs.session-token'
+    : 'authjs.session-token';
 
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
+    cookieName,
   });
 
   const isAuthenticated = !!token;
-  const isPro = token?.role === 'PRO' || token?.role === 'ADMIN';
 
   if (PRO_ROUTES.some((route) => pathname.startsWith(route))) {
     if (!isAuthenticated) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
+    const role = token?.role as string;
+    const isPro = ['PRO', 'SCOUT', 'ADMIN'].includes(role);
     if (!isPro) {
       return NextResponse.json(
         { error: 'Recurso exclusivo para assinantes PRO', upgrade: true },
@@ -40,8 +48,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/api/analyze/:path*',
-  ],
+  matcher: ['/dashboard/:path*', '/api/analyze/:path*'],
 };
