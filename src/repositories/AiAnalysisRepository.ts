@@ -34,11 +34,27 @@ export async function findCachedContextForToday(profileId: string): Promise<stri
   return existing?.cached_context_id ?? null;
 }
 
+const CONTENT_HASH_CACHE_DAYS = 30;
+
+export async function findByContentHash(hash: string): Promise<IAiAnalysis | null> {
+  await dbConnect();
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() - CONTENT_HASH_CACHE_DAYS);
+  return AiAnalysis.findOne({
+    content_hash: hash,
+    status: 'COMPLETED',
+    createdAt: { $gte: expiryDate },
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
 export async function createAnalysis(data: {
   profile_id: string;
   status: IAiAnalysis['status'];
   analysis_data?: IAiAnalysisData;
   cached_context_id?: string;
+  content_hash?: string;
   token_usage?: IAiAnalysis['token_usage'];
   video_url?: string;
 }): Promise<IAiAnalysis> {

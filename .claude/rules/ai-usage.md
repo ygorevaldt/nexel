@@ -104,11 +104,41 @@ const BOOYAH_LIMITS = { FREE: 3, PRO: 10, SCOUT: 10 } as const;
 
 ---
 
-## Context Caching
+## Content Hash Cache (Memoização Global)
 
-O projeto usa Context Caching do Gemini para reduzir custo em análises repetidas do mesmo jogador.
+O projeto usa memoização por SHA-256 para evitar chamar o Gemini quando os mesmos frames já foram analisados anteriormente.
+
+- **TTL:** 30 dias (controlado pela constante `CONTENT_HASH_CACHE_DAYS` no Repository)
+- **Escopo:** global — qualquer jogador com os mesmos frames reutiliza o resultado
+- **Campo no Model:** `content_hash: string` em `AiAnalysis`
+- **Lookup:** `AiAnalysisRepository.findByContentHash(hash)` — busca por hash + status COMPLETED + dentro do TTL
+- **Resposta da API:** inclui `cacheUsed: boolean` para o cliente saber se o resultado veio do cache
+- **Onde aplicar:** sempre antes de chamar o Gemini em qualquer rota de análise
+
+```typescript
+import { createHash } from 'crypto';
+
+// Na rota, antes de chamar o Gemini:
+const contentHash = createHash('sha256').update(framesBase64.join('')).digest('hex');
+const cachedAnalysis = await findByContentHash(contentHash);
+
+if (cachedAnalysis) {
+  return NextResponse.json({ success: true, data: cachedAnalysis, cacheUsed: true, ... });
+}
+
+// Ao salvar nova análise:
+await createAnalysis({ ..., content_hash: contentHash });
+```
+
+---
+
+## Context Caching (Gemini)
+
+O projeto também usa Context Caching do Gemini para reduzir custo em análises do mesmo jogador no mesmo dia.
 A lógica está em `AiAnalysisRepository.findCachedContextForToday()`.
-Ao criar novas features de análise, verificar se caching é aplicável.
+Ao criar novas features de análise, verificar se ambos os tipos de caching são aplicáveis.
+
+> **Ordem de prioridade:** Content Hash Cache → Context Caching → Chamada Gemini nova
 
 ---
 

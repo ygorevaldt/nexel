@@ -23,6 +23,7 @@ export interface IAiAnalysisData {
 export interface IAiAnalysis extends Document {
   profile_id: mongoose.Types.ObjectId;
   video_url?: string;
+  content_hash?: string;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   analysis_data?: IAiAnalysisData;
   token_usage?: {
@@ -67,13 +68,15 @@ const AiAnalysisSchema: Schema<IAiAnalysis> = new Schema(
       cache_hit: { type: Boolean, default: false },
     },
     cached_context_id: { type: String },
+    content_hash: { type: String },
     error_message: String,
   },
   { timestamps: true }
 );
 
-// Index to quickly find the latest analysis for a profile
 AiAnalysisSchema.index({ profile_id: 1, createdAt: -1 });
+// Sparse index: most documents won't have content_hash (legacy), so sparse avoids indexing nulls
+AiAnalysisSchema.index({ content_hash: 1 }, { sparse: true });
 
 export const AiAnalysis: Model<IAiAnalysis> =
   mongoose.models.AiAnalysis || mongoose.model<IAiAnalysis>('AiAnalysis', AiAnalysisSchema);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { auth } from "@/lib/auth";
 import { findUserById } from "@/repositories/UserRepository";
@@ -6,6 +7,7 @@ import { findProfileByUserId } from "@/repositories/ProfileRepository";
 import {
   countTodayAnalyses,
   findCachedContextForToday,
+  findByContentHash,
   createAnalysis,
 } from "@/repositories/AiAnalysisRepository";
 import { addAiScoreToHistory } from "@/repositories/ProfileRepository";
@@ -138,6 +140,22 @@ export async function POST(req: NextRequest) {
 
     const profileId = String(profile._id);
 
+    // ─── Content Hash: Memoization Cache (global, 30-day TTL) ────────────────
+    const contentHash = createHash("sha256").update(framesBase64.join("")).digest("hex");
+    const cachedAnalysis = await findByContentHash(contentHash);
+
+    if (cachedAnalysis) {
+      return NextResponse.json({
+        success: true,
+        data: cachedAnalysis,
+        cacheUsed: true,
+        cost_optimization: {
+          cache_hit: true,
+          tokens_used: 0,
+        },
+      });
+    }
+
     // ─── Daily Limit (PRO only — SCOUT is unlimited) ──────────────────────────
     if (subscriptionStatus === "PRO") {
       const todayCount = await countTodayAnalyses(profileId);
@@ -213,6 +231,7 @@ export async function POST(req: NextRequest) {
       status: "COMPLETED",
       analysis_data: analysisData,
       cached_context_id: cachedContextId ?? undefined,
+      content_hash: contentHash,
       token_usage: {
         prompt_tokens: response.usageMetadata?.promptTokenCount ?? 0,
         completion_tokens: response.usageMetadata?.candidatesTokenCount ?? 0,
@@ -226,13 +245,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: newAnalysis,
+      cacheUsed: false,
       cost_optimization: {
         cache_hit: cacheHit,
         tokens_used: response.usageMetadata?.totalTokenCount ?? 0,
       },
     });
   } catch (error) {
-    console.error("AI Analysis Error:", error);
+    console.error("[POST /api/analyze]", error);
     return NextResponse.json(
       { error: "Falha na análise de IA", details: (error as Error).message },
       { status: 500 }
