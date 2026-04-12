@@ -8,6 +8,7 @@ export const authConfig: NextAuthConfig = {
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = (user as { role: string }).role;
+        token.subscriptionStatus = (user as { subscriptionStatus: string }).subscriptionStatus;
         token.id = user.id;
       }
       if (trigger === "update" && session?.name) {
@@ -19,6 +20,8 @@ export const authConfig: NextAuthConfig = {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        // Fall back to role for sessions issued before subscriptionStatus was added to the JWT
+        session.user.subscriptionStatus = (token.subscriptionStatus ?? token.role) as string;
       }
       return session;
     },
