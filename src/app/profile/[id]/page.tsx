@@ -1,14 +1,30 @@
-"use client";
+import { cookies } from "next/headers";
+import { Trophy, TrendingUp, BrainCircuit, Swords, Medal, Film, MessageCircle, Shield } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProfileHeader } from "./_components/ProfileHeader";
+import { ScoreCards } from "./_components/ScoreCards";
+import { ScoreChart } from "./_components/ScoreChart";
+import { AnalysisList } from "./_components/AnalysisList";
+import { VictoryHistory } from "./_components/VictoryHistory";
+import { BadgesGrid } from "./_components/BadgesGrid";
+import { ClipsList } from "./_components/ClipsList";
+import { UpgradeCTA } from "./_components/UpgradeCTA";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { BrainCircuit, Trophy, Target, Shield, Star, Lock, MessageCircle, ExternalLink, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+// Re-export types used by components
+export interface AnalysisItem {
+  id: string;
+  overall_potential_score: number;
+  movement_score: number;
+  gloo_wall_usage: number;
+  rotation_efficiency: number;
+  recruiter_feedback: string | null;
+  strengths: string[];
+  areas_for_improvement: string[];
+  highlights: string[];
+  recommended_playstyle: string | null;
+  analyzed_at: string;
+  video_url: string | null;
+}
 
 interface ProfileData {
   id: string;
@@ -17,7 +33,7 @@ interface ProfileData {
   bio: string | null;
   rank: string;
   global_score: number;
-  highlight_video_url: string | null;
+  plan: "FREE" | "PRO" | "SCOUT";
   social_links: { instagram?: string; youtube?: string; tiktok?: string };
   metrics: {
     matches_played: number;
@@ -26,292 +42,338 @@ interface ProfileData {
     headshot_rate: number;
     winRate: number;
   };
+  scores: { movement: number; gloo_wall: number; rotation: number } | null;
+  score_delta: number | null;
   ai_score_history: { score: number; date: string }[];
   latest_analysis: {
+    id: string;
     overall_potential_score: number;
+    movement_score: number;
+    gloo_wall_usage: number;
+    rotation_efficiency: number;
     recruiter_feedback: string | null;
     strengths: string[];
+    areas_for_improvement: string[];
     highlights: string[];
     recommended_playstyle: string | null;
     analyzed_at: string;
   } | null;
+  analyses: AnalysisItem[];
+  analyses_total: number;
+  victories: {
+    total_matches: number;
+    total_wins: number;
+    total_losses: number;
+    win_rate: number;
+    by_month: Array<{
+      year: number;
+      month: number;
+      matches: number;
+      wins: number;
+      losses: number;
+    }>;
+  };
+  badges: Array<{
+    id: string;
+    label: string;
+    description: string;
+    unlocked: boolean;
+    icon: string;
+  }>;
+  clips: Array<{
+    id: string;
+    video_url: string | null;
+    analyzed_at: string;
+    score: number;
+  }>;
   contact_info: { discord?: string; whatsapp?: string } | null;
   is_contact_visible: boolean;
+  viewer_permission: "partial" | "full";
+  is_own_profile: boolean;
 }
 
-export default function ProfilePage() {
-  const params = useParams();
-  const id = params?.id as string;
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
+type PartialProfileData = Pick<
+  ProfileData,
+  "id" | "nickname" | "game_id" | "rank" | "global_score" | "plan" | "viewer_permission" | "is_own_profile"
+>;
 
-  useEffect(() => {
-    if (!id) return;
-    fetch(`/api/profile/${id}`)
-      .then((r) => r.json())
-      .then((json) => setProfile(json.data ?? null))
-      .catch(() => setProfile(null))
-      .finally(() => setLoading(false));
-  }, [id]);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  try {
+    const cookieHeader = (await cookies()).toString();
+    const res = await fetch(`${baseUrl}/api/profile/${id}`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return { title: "Perfil | Nexel" };
+    const json = await res.json();
+    const nickname = json.data?.nickname ?? "Jogador";
+    return { title: `${nickname} | Perfil - Nexel` };
+  } catch {
+    return { title: "Perfil | Nexel" };
+  }
+}
 
-  if (loading) {
+// Motion wrapper — must be a server-compatible approach
+// Since motion.div is a client component, we wrap each section in a div
+// and use CSS animation fallback for the server render.
+// The page uses server components so we avoid framer-motion here.
+// Instead, we'll add a thin wrapper client component for animations.
+
+function Section({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+}) {
+  // Server-side: render with inline style for animation delay
+  // The animation class uses Tailwind animate-fade-in-up (add to globals if needed)
+  return (
+    <div
+      style={{ animationDelay: `${delay}ms` }}
+      className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+    >
+      {children}
+    </div>
+  );
+}
+
+export default async function ProfilePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+  let profileData: ProfileData | PartialProfileData | null = null;
+  let fetchError = false;
+
+  try {
+    const cookieHeader = (await cookies()).toString();
+    const res = await fetch(`${baseUrl}/api/profile/${id}`, {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      profileData = json.data ?? null;
+    } else {
+      fetchError = true;
+    }
+  } catch {
+    fetchError = true;
+  }
+
+  if (fetchError || !profileData) {
     return (
-      <div className="container max-w-4xl py-8 md:py-16 px-4 space-y-6">
-        <div className="h-48 rounded-2xl bg-muted/20 animate-pulse" />
-        <div className="h-64 rounded-2xl bg-muted/20 animate-pulse" />
+      <div className="container max-w-7xl mx-auto py-16 px-4 text-center text-muted-foreground">
+        <Trophy className="h-16 w-16 mx-auto mb-4 opacity-20" />
+        <h2 className="text-2xl font-bold mb-2">Perfil não encontrado</h2>
+        <p className="text-sm">
+          O perfil que você está procurando não existe ou foi removido.
+        </p>
       </div>
     );
   }
 
-  if (!profile) {
+  // Partial view
+  if (profileData.viewer_permission === "partial") {
     return (
-      <div className="container max-w-4xl py-8 md:py-16 px-4 text-center text-muted-foreground">
-        <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
-        <h2 className="text-xl font-bold">Perfil não encontrado</h2>
+      <div className="container max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-8 space-y-6">
+        <Section delay={0}>
+          <ProfileHeader
+            profile={{
+              nickname: profileData.nickname,
+              game_id: profileData.game_id,
+              rank: profileData.rank,
+              global_score: profileData.global_score,
+              plan: profileData.plan,
+              is_own_profile: profileData.is_own_profile,
+            }}
+          />
+        </Section>
+        <Section delay={100}>
+          <UpgradeCTA />
+        </Section>
       </div>
     );
   }
 
-  const scoreColor =
-    profile.global_score >= 75
-      ? "text-emerald-400"
-      : profile.global_score >= 50
-      ? "text-amber-400"
-      : "text-red-400";
+  // Full view
+  const full = profileData as ProfileData;
 
   return (
-    <div className="container max-w-4xl py-5 md:py-10 px-4 md:px-8 space-y-4 md:space-y-6">
+    <div className="container max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-8 space-y-6">
+      {/* Header */}
+      <Section delay={0}>
+        <ProfileHeader
+          profile={{
+            nickname: full.nickname,
+            game_id: full.game_id,
+            bio: full.bio,
+            rank: full.rank,
+            global_score: full.global_score,
+            plan: full.plan,
+            social_links: full.social_links,
+            score_delta: full.score_delta,
+            is_own_profile: full.is_own_profile,
+          }}
+        />
+      </Section>
 
-      {/* Hero Card */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="relative overflow-hidden bg-card/50 border-border/50">
-          <div className="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
-
-          <CardContent className="relative pt-5 md:pt-8 pb-4 md:pb-6">
-            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-              {/* Avatar + Name */}
-              <div className="flex items-center gap-5">
-                <Avatar className="h-24 w-24 ring-4 ring-primary/30">
-                  <AvatarFallback className="text-3xl font-black bg-primary/10 text-primary">
-                    {profile.nickname.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-extrabold tracking-tight">{profile.nickname}</h1>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs font-bold uppercase">
-                      {profile.rank}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs text-muted-foreground">
-                      ID: {profile.game_id}
-                    </Badge>
-                  </div>
-                  {profile.bio && (
-                    <p className="text-sm text-muted-foreground max-w-xs">{profile.bio}</p>
-                  )}
-                  {/* Social Links */}
-                  <div className="flex items-center gap-2">
-                    {profile.social_links?.instagram && (
-                      <a href={`https://instagram.com/${profile.social_links.instagram}`} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-                        <ExternalLink className="h-3 w-3" /> Instagram
-                      </a>
-                    )}
-                    {profile.social_links?.youtube && (
-                      <a href={`https://youtube.com/@${profile.social_links.youtube}`} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-                        <ExternalLink className="h-3 w-3" /> YouTube
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Global Score */}
-              <div className="md:ml-auto flex flex-col items-center p-5 rounded-2xl bg-muted/30 border border-border/50 min-w-[120px] text-center">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
-                  AI Score
-                </span>
-                <span className={`text-5xl font-black tabular-nums ${scoreColor}`}>
-                  {profile.global_score > 0 ? profile.global_score : "—"}
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">/100</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-
-        {/* Stats Card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card className="bg-card/50 border-border/50 h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Target className="h-4 w-4 text-primary" /> Estatísticas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
-              {[
-                { label: "Partidas", value: profile.metrics.matches_played },
-                { label: "Vitórias", value: profile.metrics.wins, color: "text-emerald-400" },
-                { label: "Win Rate", value: `${profile.metrics.winRate}%`, color: "text-emerald-400" },
-                { label: "Headshot %", value: `${profile.metrics.headshot_rate}%` },
-              ].map(({ label, value, color }) => (
-                <div key={label} className="p-3 rounded-xl bg-muted/20 border border-border/30 text-center">
-                  <div className={`text-xl font-black tabular-nums ${color ?? ""}`}>{value}</div>
-                  <div className="text-[10px] uppercase text-muted-foreground font-bold">{label}</div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Recruiter Contact Card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <Card className="bg-card/50 border-border/50 h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageCircle className="h-4 w-4 text-primary" /> Contato (Scout)
-              </CardTitle>
-              <CardDescription>
-                Dados de contato para recrutamento
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {profile.is_contact_visible && profile.contact_info ? (
-                <div className="space-y-3">
-                  {profile.contact_info.discord && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                      <Shield className="h-4 w-4 text-indigo-400" />
-                      <span className="text-sm font-medium">{profile.contact_info.discord}</span>
-                    </div>
-                  )}
-                  {profile.contact_info.whatsapp && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                      <MessageCircle className="h-4 w-4 text-emerald-400" />
-                      <span className="text-sm font-medium">{profile.contact_info.whatsapp}</span>
-                    </div>
-                  )}
-                  {!profile.contact_info.discord && !profile.contact_info.whatsapp && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      Jogador não informou dados de contato ainda.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-6 text-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-muted/30 flex items-center justify-center">
-                    <Lock className="h-5 w-5 text-muted-foreground/50" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Dados de contato visíveis apenas para assinantes do{" "}
-                    <span className="font-bold text-foreground">Plano Scout</span>.
-                  </p>
-                  <Link
-                    href="/subscription"
-                    className={buttonVariants({ size: "sm", className: "rounded-full mt-1" })}
-                  >
-                    Assinar Plano Scout
-                  </Link>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Recruiter Feedback */}
-      {profile.latest_analysis && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+      {/* Score Cards */}
+      {full.scores && (
+        <Section delay={100}>
           <Card className="bg-card/50 border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <BrainCircuit className="h-4 w-4 text-primary" /> Avaliação do Recrutador de Elite
+                <BrainCircuit className="h-4 w-4 text-primary" />
+                Scores de Habilidade
               </CardTitle>
-              <CardDescription>
-                Score potencial:{" "}
-                <span className={`font-bold ${scoreColor}`}>
-                  {profile.latest_analysis.overall_potential_score}/100
-                </span>
-                {profile.latest_analysis.recommended_playstyle && (
-                  <> · Posição recomendada:{" "}
-                    <span className="font-bold text-foreground">{profile.latest_analysis.recommended_playstyle}</span>
-                  </>
-                )}
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 md:space-y-5">
-              {profile.latest_analysis.recruiter_feedback && (
-                <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
-                  <p className="text-sm text-muted-foreground leading-relaxed italic">
-                    &quot;{profile.latest_analysis.recruiter_feedback}&quot;
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                {profile.latest_analysis.strengths.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase text-emerald-400 mb-2">Pontos Fortes</p>
-                    <ul className="space-y-1.5">
-                      {profile.latest_analysis.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Star className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" /> {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {profile.latest_analysis.highlights.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold uppercase text-primary mb-2">Destaques do Clipe</p>
-                    <ul className="space-y-1.5">
-                      {profile.latest_analysis.highlights.map((h, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Trophy className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> {h}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+            <CardContent>
+              <ScoreCards scores={full.scores} />
             </CardContent>
           </Card>
-        </motion.div>
+        </Section>
       )}
 
-      {/* Score Evolution (mini chart) */}
-      {profile.ai_score_history.length > 1 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+      {/* Chart + Victory History grid */}
+      <Section delay={200}>
+        <div className={`grid gap-4 md:gap-6 ${full.ai_score_history.length > 0 ? "md:grid-cols-2" : "grid-cols-1"}`}>
+          {/* Evolução do Score: apenas próprio perfil ou SCOUT */}
+          {full.ai_score_history.length > 0 && (
+            <Card className="bg-card/50 border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Evolução do Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScoreChart history={full.ai_score_history} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Victory History */}
           <Card className="bg-card/50 border-border/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="h-4 w-4 text-primary" /> Evolução do Score
+                <Swords className="h-4 w-4 text-primary" />
+                Histórico de Vitórias
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-24 flex items-end gap-1.5">
-                {profile.ai_score_history.map((entry, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative">
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-card border border-border text-[10px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      {entry.score}
-                    </div>
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${entry.score}%` }}
-                      transition={{ duration: 0.5, delay: i * 0.05 }}
-                      className={`w-full rounded-t-sm ${
-                        entry.score >= 70 ? "bg-emerald-500/70" : entry.score >= 45 ? "bg-amber-500/70" : "bg-red-500/70"
-                      }`}
-                    />
-                  </div>
-                ))}
-              </div>
+              <VictoryHistory victories={full.victories} />
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
+      </Section>
+
+      {/* Analysis list */}
+      {full.analyses_total > 0 && (
+        <Section delay={300}>
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BrainCircuit className="h-4 w-4 text-primary" />
+                Análises da IA
+                <span className="ml-auto text-xs font-normal text-muted-foreground">
+                  {full.analyses_total} análise{full.analyses_total !== 1 ? "s" : ""}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AnalysisList
+                initialAnalyses={full.analyses}
+                total={full.analyses_total}
+                profileId={full.id}
+              />
+            </CardContent>
+          </Card>
+        </Section>
+      )}
+
+      {/* Badges */}
+      {full.badges.length > 0 && (
+        <Section delay={400}>
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Medal className="h-4 w-4 text-primary" />
+                Conquistas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BadgesGrid badges={full.badges} />
+            </CardContent>
+          </Card>
+        </Section>
+      )}
+
+      {/* Clipes Enviados: apenas próprio perfil ou SCOUT */}
+      {full.clips.length > 0 && (
+        <Section delay={500}>
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Film className="h-4 w-4 text-primary" />
+                Clipes Enviados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ClipsList clips={full.clips} />
+            </CardContent>
+          </Card>
+        </Section>
+      )}
+
+      {/* Contact info */}
+      {full.is_contact_visible && full.contact_info && (
+        <Section delay={600}>
+          <Card className="bg-card/50 border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessageCircle className="h-4 w-4 text-primary" />
+                Contato (Scout)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {full.contact_info.discord && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                  <Shield className="h-4 w-4 text-indigo-400 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Discord</p>
+                    <p className="text-sm font-medium">{full.contact_info.discord}</p>
+                  </div>
+                </div>
+              )}
+              {full.contact_info.whatsapp && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">WhatsApp</p>
+                    <p className="text-sm font-medium">{full.contact_info.whatsapp}</p>
+                  </div>
+                </div>
+              )}
+              {!full.contact_info.discord && !full.contact_info.whatsapp && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Jogador não informou dados de contato ainda.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </Section>
       )}
     </div>
   );

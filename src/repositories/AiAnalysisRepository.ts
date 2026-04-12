@@ -58,6 +58,25 @@ export async function findAnalysesByProfileId(
     .lean();
 }
 
+export async function findAnalysesByProfileIdPaginated(
+  profileId: string,
+  page = 1,
+  limit = 10
+): Promise<{ analyses: IAiAnalysis[]; total: number }> {
+  await dbConnect();
+  const skip = (page - 1) * limit;
+  const [analyses, total] = await Promise.all([
+    AiAnalysis.find({ profile_id: profileId, status: 'COMPLETED' })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('_id analysis_data createdAt video_url')
+      .lean(),
+    AiAnalysis.countDocuments({ profile_id: profileId, status: 'COMPLETED' }),
+  ]);
+  return { analyses, total };
+}
+
 /**
  * Finds an analysis by ID and verifies it belongs to the given profile.
  * Used for ownership checks to prevent IDOR attacks.
