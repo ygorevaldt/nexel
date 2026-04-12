@@ -45,4 +45,9 @@ next-env.d.ts
 /features
 
 # Claude Code local settings
-.claude/
+.claude/settings.local.json
+CLAUDE.local.md
+
+
+# local seed profiles (can opt-in for committing if needed)
+scripts/seed-profiles.mjs
