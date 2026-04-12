@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Sparkles, Trophy, BrainCircuit, ChevronRight, Star, Target } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const { data: session } = useSession();
@@ -32,26 +33,111 @@ export default function Home() {
 
         <div className="flex flex-col sm:flex-row gap-4">
           {!session && (
+            <motion.div
+              className="relative rounded-full"
+              whileHover={{ scale: 1.07 }}
+              whileTap={{ scale: 0.95 }}
+              animate={{
+                boxShadow: [
+                  "0 0 0px 0px rgba(255,179,0,0)",
+                  "0 0 12px 3px rgba(255,179,0,0.35)",
+                  "0 0 0px 0px rgba(255,179,0,0)",
+                ],
+              }}
+              transition={{
+                boxShadow: { repeat: Infinity, duration: 2, ease: "easeInOut" },
+                scale: { type: "spring", stiffness: 350, damping: 15 },
+              }}
+            >
+              {/* Container com overflow hidden para o shimmer não vazar */}
+              <div className="relative overflow-hidden rounded-full">
+                <Link
+                  href="/register"
+                  className={buttonVariants({
+                    size: "lg",
+                    className: "relative h-12 px-8 text-lg rounded-full",
+                  })}
+                >
+                  Criar Perfil Grátis <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+                {/* Shimmer: tira brilhante que atravessa o botão da esquerda pra direita */}
+                <motion.span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 w-2/5"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)",
+                  }}
+                  animate={{ left: ["-40%", "140%"] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 2.2,
+                    ease: "linear",
+                    repeatDelay: 1,
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
+          {session ? (
+            /* Logado: botão principal com glow + shimmer */
+            <motion.div
+              className="relative rounded-full"
+              whileHover={{ scale: 1.07 }}
+              whileTap={{ scale: 0.95 }}
+              animate={{
+                boxShadow: [
+                  "0 0 0px 0px rgba(255,179,0,0)",
+                  "0 0 12px 3px rgba(255,179,0,0.35)",
+                  "0 0 0px 0px rgba(255,179,0,0)",
+                ],
+              }}
+              transition={{
+                boxShadow: { repeat: Infinity, duration: 2, ease: "easeInOut" },
+                scale: { type: "spring", stiffness: 350, damping: 15 },
+              }}
+            >
+              <div className="relative overflow-hidden rounded-full">
+                <Link
+                  href="/feed"
+                  className={buttonVariants({
+                    size: "lg",
+                    className: "relative h-12 px-8 text-lg rounded-full",
+                  })}
+                >
+                  Explorar Talentos
+                </Link>
+                <motion.span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 w-2/5"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)",
+                  }}
+                  animate={{ left: ["-40%", "140%"] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 2.2,
+                    ease: "linear",
+                    repeatDelay: 1,
+                  }}
+                />
+              </div>
+            </motion.div>
+          ) : (
+            /* Não logado: ação secundária, visível em dark e light mode */
             <Link
-              href="/register"
+              href="/feed"
               className={buttonVariants({
                 size: "lg",
-                className: "h-12 px-8 text-lg rounded-full",
+                variant: "outline",
+                className:
+                  "h-12 px-8 text-lg rounded-full border-2 border-foreground/30 text-foreground hover:bg-foreground/8 dark:border-foreground/25 dark:text-foreground",
               })}
             >
-              Criar Perfil Grátis <ChevronRight className="ml-2 h-4 w-4" />
+              Explorar Talentos
             </Link>
           )}
-          <Link
-            href="/feed"
-            className={buttonVariants({
-              size: "lg",
-              variant: "outline",
-              className: "h-12 px-8 text-lg rounded-full",
-            })}
-          >
-            Explorar Talentos
-          </Link>
         </div>
       </section>
 

@@ -39,8 +39,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          subscriptionStatus: user.subscriptionStatus,
         };
       },
     }),
   ],
+  callbacks: {
+    ...authConfig.callbacks,
+    async jwt(params) {
+      const { token, user } = params;
+
+      // On login: populate from the user object returned by authorize()
+      if (user) {
+        token.role = (user as { role: string }).role;
+        token.subscriptionStatus = (user as { subscriptionStatus: string }).subscriptionStatus;
+        token.id = user.id;
+      }
+
+      // Self-heal stale tokens: if subscriptionStatus is missing from this JWT
+      // (issued before the field was added), refresh from DB once.
+      if (token.id && !token.subscriptionStatus) {
+        try {
+          await dbConnect();
+          const freshUser = await User.findById(token.id).lean();
+          if (freshUser) {
+            token.role = freshUser.role;
+            token.subscriptionStatus = freshUser.subscriptionStatus;
+          }
+        } catch {
+          // DB lookup failed — leave token as-is
+        }
+      }
+
+      if ("trigger" in params && params.trigger === "update" && "session" in params) {
+        const session = params.session as { name?: string };
+        if (session?.name) token.name = session.name;
+      }
+
+      return token;
+    },
+  },
 });

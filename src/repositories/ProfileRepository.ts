@@ -9,6 +9,45 @@ export interface ProfileFilters {
   sortBy?: 'global_score' | 'wins' | 'headshot_rate';
 }
 
+/**
+ * Normaliza uma string removendo acentos e convertendo para minúsculas.
+ * Ex.: "João" → "joao", "AÇÃO" → "acao"
+ */
+function normalizeText(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Constrói um RegExp que realiza busca parcial, case-insensitive e accent-insensitive.
+ * Ex.: buscar "joao" encontra "João", "JOAO", "joão", "joão" etc.
+ */
+function buildSearchRegex(search: string): RegExp {
+  // Mapa de caracteres sem acento → classe de regex que cobre todas as variações
+  const accentMap: Record<string, string> = {
+    a: '[aáàâãäå]',
+    e: '[eéèêë]',
+    i: '[iíìîï]',
+    o: '[oóòôõö]',
+    u: '[uúùûü]',
+    c: '[cç]',
+    n: '[nñ]',
+  };
+
+  const normalized = normalizeText(search);
+  // Escapa caracteres especiais de regex antes de montar o padrão
+  const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = escaped
+    .split('')
+    .map((char) => accentMap[char] ?? char)
+    .join('');
+
+  return new RegExp(pattern, 'i');
+}
+
 export async function findProfiles(
   filters: ProfileFilters = {},
   limit = 20
@@ -17,7 +56,8 @@ export async function findProfiles(
   const query: Record<string, unknown> = {};
 
   if (filters.search) {
-    query.$text = { $search: filters.search };
+    // Busca parcial, case-insensitive e accent-insensitive no campo nickname
+    query.nickname = { $regex: buildSearchRegex(filters.search) };
   }
   if (filters.rank) {
     query.rank = filters.rank;

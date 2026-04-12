@@ -72,10 +72,10 @@ export default function FeedPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      // PRO and SCOUT can use all filters; FREE only gets nick search
-      if (isPro && rank && rank !== "Todos") params.set("rank", rank);
-      if (isPro && minScore) params.set("minScore", minScore);
-      if (isPro && sortBy) params.set("sortBy", sortBy);
+      // Apenas SCOUT pode usar filtros avançados
+      if (isScout && rank && rank !== "Todos") params.set("rank", rank);
+      if (isScout && minScore) params.set("minScore", minScore);
+      if (isScout && sortBy) params.set("sortBy", sortBy);
 
       const res = await fetch(`/api/feed?${params.toString()}`);
       const json = await res.json();
@@ -112,19 +112,26 @@ export default function FeedPage() {
         <h1 className="text-3xl font-extrabold tracking-tight">Explorar Talentos</h1>
         <p className="text-muted-foreground text-sm">
           {isScout
-            ? "Acesso completo: métricas, score IA, análises e vídeos dos jogadores."
+            ? "Acesso completo: métricas, scores, estatísticas e filtros avançados de todos os jogadores."
             : isPro
-            ? "Descubra os próximos pro-players analisados por nossa IA."
-            : "Busque jogadores pelo nick. Assine o Plano PRO para ver score, ranking e filtros avançados."}
+            ? "Acesse scores e estatísticas completas de todos os jogadores. Assine o Plano SCOUT para desbloquear filtros avançados."
+            : "Busque jogadores pelo nick. Assine o Plano PRO para ver scores, ranking e estatísticas completas."}
         </p>
-        {!isPro && (
+        {!isPro ? (
           <Link
             href="/subscription"
             className={buttonVariants({ size: "sm", className: "rounded-full mt-1" })}
           >
-            <Crown className="h-3.5 w-3.5 mr-1.5" /> Assinar PRO para acesso completo
+            <Crown className="h-3.5 w-3.5 mr-1.5" /> Assinar PRO
           </Link>
-        )}
+        ) : !isScout ? (
+          <Link
+            href="/subscription"
+            className={buttonVariants({ variant: "outline", size: "sm", className: "rounded-full mt-1" })}
+          >
+            <Crown className="h-3.5 w-3.5 mr-1.5" /> Assinar SCOUT para filtros avançados
+          </Link>
+        ) : null}
       </div>
 
       {/* Filters Bar */}
@@ -140,10 +147,10 @@ export default function FeedPage() {
           />
         </div>
 
-        {/* Rank Filter — PRO/SCOUT only */}
-        <div className={`relative ${!isPro ? "opacity-50 pointer-events-none" : ""}`}>
-          {!isPro && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
-          <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")} disabled={!isPro}>
+        {/* Rank Filter — SCOUT only */}
+        <div className={`relative ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
+          {!isScout && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
+          <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")} disabled={!isScout}>
             <SelectTrigger className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
               <SelectValue placeholder="Rank" />
             </SelectTrigger>
@@ -155,9 +162,9 @@ export default function FeedPage() {
           </Select>
         </div>
 
-        {/* Min Score Filter — PRO/SCOUT only */}
-        <div className={`relative w-full md:w-44 ${!isPro ? "opacity-50 pointer-events-none" : ""}`}>
-          {!isPro
+        {/* Min Score Filter — SCOUT only */}
+        <div className={`relative w-full md:w-44 ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
+          {!isScout
             ? <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             : <Sliders className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           }
@@ -169,14 +176,14 @@ export default function FeedPage() {
             className="pl-10 h-10 rounded-lg bg-muted/50 border-border/50"
             value={minScore}
             onChange={(e) => setMinScore(e.target.value)}
-            disabled={!isPro}
+            disabled={!isScout}
           />
         </div>
 
-        {/* Sort By — PRO/SCOUT only */}
-        <div className={`relative ${!isPro ? "opacity-50 pointer-events-none" : ""}`}>
-          {!isPro && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")} disabled={!isPro}>
+        {/* Sort By — SCOUT only */}
+        <div className={`relative ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
+          {!isScout && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")} disabled={!isScout}>
             <SelectTrigger className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>

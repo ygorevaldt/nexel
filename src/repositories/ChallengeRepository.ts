@@ -77,3 +77,55 @@ export async function updateChallengeStatus(
     { new: true }
   ).lean();
 }
+
+/**
+ * Returns victory/defeat history for a user, grouped by month, from RANKED completed challenges.
+ * userId deve ser o User._id (não o Profile._id).
+ */
+export async function findVictoryHistoryByUserId(userId: string): Promise<{
+  total_matches: number;
+  total_wins: number;
+  total_losses: number;
+  win_rate: number;
+  by_month: Array<{ year: number; month: number; matches: number; wins: number; losses: number }>;
+}> {
+  await dbConnect();
+  const oid = new mongoose.Types.ObjectId(userId);
+
+  const challenges = await Challenge.find({
+    $or: [{ creator_id: oid }, { opponent_id: oid }],
+    status: 'COMPLETED',
+    matchType: 'RANKED',
+  })
+    .select('winner_id createdAt')
+    .lean();
+
+  const byMonth: Record<string, { year: number; month: number; matches: number; wins: number; losses: number }> = {};
+
+  for (const c of challenges) {
+    const date = new Date(c.createdAt);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const key = `${year}-${month}`;
+    if (!byMonth[key]) byMonth[key] = { year, month, matches: 0, wins: 0, losses: 0 };
+    byMonth[key].matches++;
+    if (c.winner_id && c.winner_id.equals(oid)) {
+      byMonth[key].wins++;
+    } else {
+      byMonth[key].losses++;
+    }
+  }
+
+  const total_matches = challenges.length;
+  const total_wins = challenges.filter((c) => c.winner_id && c.winner_id.equals(oid)).length;
+  const total_losses = total_matches - total_wins;
+  const win_rate = total_matches > 0 ? Math.round((total_wins / total_matches) * 100) : 0;
+
+  return {
+    total_matches,
+    total_wins,
+    total_losses,
+    win_rate,
+    by_month: Object.values(byMonth).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month),
+  };
+}
