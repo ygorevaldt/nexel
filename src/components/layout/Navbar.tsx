@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { motion } from "framer-motion";
 import {
   Shield,
   Sparkles,
@@ -17,6 +18,7 @@ import {
   BrainCircuit,
   Sun,
   Moon,
+  User,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -53,7 +55,7 @@ export function Navbar() {
   const isLoading = status === "loading";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
       <div className="flex h-16 max-w-7xl mx-auto px-4 md:px-8 items-center w-full justify-between">
 
         {/* Mobile Menu Toggle */}
@@ -142,6 +144,14 @@ export function Navbar() {
                     </span>
                   </div>
                   <div className="py-1">
+                    <Link
+                      href="/profile/me"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <User className="h-4 w-4" />
+                      Meu Perfil
+                    </Link>
                     <button
                       onClick={() => {
                         setUserMenuOpen(false);
@@ -168,9 +178,26 @@ export function Navbar() {
                 <LogIn className="h-4 w-4" />
                 Entrar
               </Button>
-              <Button size="sm" onClick={() => router.push("/register")} className="rounded-full">
-                Começar grátis
-              </Button>
+              <motion.div
+                className="rounded-full"
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
+                animate={{
+                  boxShadow: [
+                    "0 0 0px 0px rgba(255,179,0,0)",
+                    "0 0 7px 1px rgba(255,179,0,0.35)",
+                    "0 0 0px 0px rgba(255,179,0,0)",
+                  ],
+                }}
+                transition={{
+                  boxShadow: { repeat: Infinity, duration: 2.4, ease: "easeInOut" },
+                  scale: { type: "spring", stiffness: 400, damping: 17 },
+                }}
+              >
+                <Button size="sm" onClick={() => router.push("/register")} className="rounded-full">
+                  Começar grátis
+                </Button>
+              </motion.div>
             </div>
           )}
         </div>
