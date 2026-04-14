@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import { User, IUser } from '@/models/User';
 
@@ -63,6 +64,45 @@ export async function updateSubscription(
 ): Promise<IUser | null> {
   await dbConnect();
   return User.findByIdAndUpdate(userId, { $set: data }, { new: true }).lean();
+}
+
+// ─── Favorites ───────────────────────────────────────────────────────────────
+
+/**
+ * Returns the list of profile IDs this user has favorited.
+ */
+export async function getFavoritedProfileIds(userId: string): Promise<string[]> {
+  await dbConnect();
+  const user = await User.findById(userId).select('favorited_profile_ids').lean();
+  return (user?.favorited_profile_ids ?? []).map((id) => id.toString());
+}
+
+/**
+ * Checks whether a user has favorited a specific profile.
+ */
+export async function isFavorited(userId: string, profileId: string): Promise<boolean> {
+  await dbConnect();
+  const user = await User.findById(userId).select('favorited_profile_ids').lean();
+  const objectId = new mongoose.Types.ObjectId(profileId);
+  return (user?.favorited_profile_ids ?? []).some((id) => id.equals(objectId));
+}
+
+/**
+ * Adds a profile to the user's favorites. No-op if already favorited.
+ */
+export async function addFavorite(userId: string, profileId: string): Promise<void> {
+  await dbConnect();
+  const objectId = new mongoose.Types.ObjectId(profileId);
+  await User.findByIdAndUpdate(userId, { $addToSet: { favorited_profile_ids: objectId } });
+}
+
+/**
+ * Removes a profile from the user's favorites. No-op if not favorited.
+ */
+export async function removeFavorite(userId: string, profileId: string): Promise<void> {
+  await dbConnect();
+  const objectId = new mongoose.Types.ObjectId(profileId);
+  await User.findByIdAndUpdate(userId, { $pull: { favorited_profile_ids: objectId } });
 }
 
 /**

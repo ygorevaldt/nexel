@@ -21,7 +21,10 @@ Através do processamento *client-side* com **FFmpeg WASM** e a tecnologia **Goo
 ### 3. Booyah — Registro de Vitórias (PRO/SCOUT)
 O jogador envia o print da tela de resultados de uma partida ranqueada. O **Gemini Flash** analisa o print em uma única chamada, extraindo os dados da vitória e verificando a autenticidade da imagem simultaneamente (anti-fraude). O print nunca é armazenado — trafega em memória e é descartado após a análise. Vitórias SOLO e SQUAD são contabilizadas separadamente com total de kills por partida. Prints duplicados são detectados via SHA-256 e rejeitados sem consumir o limite diário.
 
-### 4. Arena de Desafios & Ranking
+### 4. Sistema de Favoritos
+Qualquer jogador logado pode favoritar outro jogador com um clique. O número de favoritos é exibido nos cards da vitrine, nas linhas do ranking e no perfil público — servindo como métrica de popularidade para Scouts. A vitrine de talentos e o ranking possuem filtro dedicado ("Apenas Favoritos") para que Scouts e jogadores vejam rapidamente suas seleções. A contagem é denormalizada no `Profile.favorites_count` para leitura rápida sem joins.
+
+### 5. Arena de Desafios & Ranking
 Módulo para confrontos (1v1 ou 4x4) com sistema de ranking global. O posicionamento no leaderboard é determinado pela consistência de vitórias e pelo score técnico atribuído pela IA, criando um ambiente competitivo meritocrático.
 
 ### 4. Monetização
@@ -49,6 +52,12 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ### Análise de IA
 *   `POST /api/analyze`: Recebe frames de vídeo (base64) e o ID do perfil. Retorna um objeto JSON estruturado com scores e feedback técnico. Implementa *Context Caching* para otimização de custos e latência.
+
+### Favoritos
+*   `POST /api/me/favorites`: Toggle favorito. Body: `{ profileId }`. Retorna `{ favorited: boolean, favorites_count: number }`. Impede auto-favoritar. Disponível para todos os planos.
+*   `GET /api/me/favorites`: Retorna `{ profileIds: string[] }` com os perfis favoritados pelo usuário logado.
+*   `GET /api/feed?favoritesOnly=true`: Filtra feed apenas pelos perfis favoritados.
+*   `GET /api/ranking?favoritesOnly=true`: Filtra ranking apenas pelos perfis favoritados (requer PRO/SCOUT).
 
 ### Booyah
 *   `POST /api/me/booyah`: Recebe um print de vitória em base64. Analisa com Gemini (anti-fraude + extração de dados). Registra a vitória no perfil se válida. Limites: FREE 3/dia, PRO 10/dia, SCOUT 10/dia. Prints duplicados (SHA-256) retornam 409 sem consumir o limite diário.

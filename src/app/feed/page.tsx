@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Trophy, ArrowUpRight, Sliders, Lock, Crown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Trophy, ArrowUpRight, Sliders, Lock, Crown, Star } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface PlayerProfile {
   id: string;
@@ -22,6 +24,8 @@ interface PlayerProfile {
   winRate: string;
   wins: number;
   highlight_video_url: string | null;
+  favorites_count: number;
+  is_favorited: boolean;
 }
 
 const RANKS = ["Todos", "Bronze", "Silver", "Gold", "Diamond", "Heroico", "Grão-Mestre"];
@@ -51,15 +55,16 @@ export default function FeedPage() {
   const [rank, setRank] = useState("Todos");
   const [minScore, setMinScore] = useState("");
   const [sortBy, setSortBy] = useState("global_score");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [profiles, setProfiles] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
   const subscriptionStatus: string =
     (session?.user as { subscriptionStatus?: string })?.subscriptionStatus ?? "FREE";
   const isPro = subscriptionStatus === "PRO" || subscriptionStatus === "SCOUT";
   const isScout = subscriptionStatus === "SCOUT";
 
-  // Redirect unauthenticated users to login
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/feed");
@@ -72,10 +77,10 @@ export default function FeedPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      // Apenas SCOUT pode usar filtros avançados
       if (isScout && rank && rank !== "Todos") params.set("rank", rank);
       if (isScout && minScore) params.set("minScore", minScore);
       if (isScout && sortBy) params.set("sortBy", sortBy);
+      if (favoritesOnly) params.set("favoritesOnly", "true");
 
       const res = await fetch(`/api/feed?${params.toString()}`);
       const json = await res.json();
@@ -85,12 +90,47 @@ export default function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, rank, minScore, sortBy, status, isPro]);
+  }, [search, rank, minScore, sortBy, favoritesOnly, status, isPro]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchProfiles(), 300);
     return () => clearTimeout(timer);
   }, [fetchProfiles]);
+
+  const handleToggleFavorite = async (profileId: string, currentlyFavorited: boolean) => {
+    if (!session?.user?.id) return;
+    setTogglingFavorite(profileId);
+    try {
+      const res = await fetch("/api/me/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao favoritar.");
+        return;
+      }
+
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.id === profileId
+            ? { ...p, is_favorited: json.favorited, favorites_count: json.favorites_count }
+            : p
+        )
+      );
+
+      if (favoritesOnly && !json.favorited) {
+        setProfiles((prev) => prev.filter((p) => p.id !== profileId));
+      }
+
+      toast.success(json.favorited ? "Adicionado aos favoritos!" : "Removido dos favoritos.");
+    } catch {
+      toast.error("Erro ao favoritar. Tente novamente.");
+    } finally {
+      setTogglingFavorite(null);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -194,6 +234,17 @@ export default function FeedPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Favorites filter — all logged-in users */}
+        <Button
+          variant={favoritesOnly ? "default" : "outline"}
+          size="sm"
+          className="h-10 rounded-lg shrink-0 gap-2"
+          onClick={() => setFavoritesOnly((v) => !v)}
+        >
+          <Star className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
+          <span className="hidden sm:inline">Favoritos</span>
+        </Button>
       </div>
 
       {/* Grid of Players */}
@@ -251,6 +302,13 @@ export default function FeedPage() {
                         <Lock className="h-2.5 w-2.5" /> Rank (PRO)
                       </span>
                     )}
+                    {/* Favorites count — visible to all */}
+                    {player.favorites_count > 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-yellow-400/80">
+                        <Star className="h-2.5 w-2.5 fill-yellow-400/80" />
+                        {player.favorites_count}
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
 
@@ -280,11 +338,19 @@ export default function FeedPage() {
                 )}
 
                 <CardFooter className="p-4 flex justify-between items-center group-hover:bg-primary/5 transition-colors">
-                  <div className="flex gap-2 items-center">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] text-muted-foreground uppercase font-medium">Ativo</span>
-                  </div>
-                  {/* Profile link — visible for all logged in users, but SCOUT gets full data */}
+                  <button
+                    onClick={() => handleToggleFavorite(player.id, player.is_favorited)}
+                    disabled={togglingFavorite === player.id}
+                    className={`flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border transition-all font-medium ${
+                      player.is_favorited
+                        ? "border-yellow-500/40 text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20"
+                        : "border-border/40 text-muted-foreground hover:border-yellow-500/40 hover:text-yellow-400"
+                    }`}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${player.is_favorited ? "fill-yellow-400" : ""}`} />
+                    {player.is_favorited ? "Favoritado" : "Favoritar"}
+                  </button>
+
                   <Link
                     href={`/profile/${player.id}`}
                     className={buttonVariants({
@@ -304,9 +370,19 @@ export default function FeedPage() {
 
       {!loading && profiles.length === 0 && (
         <div className="py-10 md:py-20 text-center">
-          <Trophy className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
-          <h3 className="text-xl font-bold text-muted-foreground">Nenhum talento encontrado.</h3>
-          <p className="text-muted-foreground">Tente outros filtros ou aguarde novos jogadores.</p>
+          {favoritesOnly ? (
+            <>
+              <Star className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
+              <h3 className="text-xl font-bold text-muted-foreground">Nenhum favorito ainda.</h3>
+              <p className="text-muted-foreground">Favorite jogadores para vê-los aqui.</p>
+            </>
+          ) : (
+            <>
+              <Trophy className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
+              <h3 className="text-xl font-bold text-muted-foreground">Nenhum talento encontrado.</h3>
+              <p className="text-muted-foreground">Tente outros filtros ou aguarde novos jogadores.</p>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -90,11 +90,13 @@ interface ProfileData {
   is_contact_visible: boolean;
   viewer_permission: "partial" | "full";
   is_own_profile: boolean;
+  favorites_count: number;
+  is_favorited: boolean;
 }
 
 type PartialProfileData = Pick<
   ProfileData,
-  "id" | "nickname" | "game_id" | "rank" | "global_score" | "plan" | "viewer_permission" | "is_own_profile"
+  "id" | "nickname" | "game_id" | "rank" | "global_score" | "plan" | "viewer_permission" | "is_own_profile" | "favorites_count" | "is_favorited"
 >;
 
 export async function generateMetadata({
@@ -197,6 +199,7 @@ export default async function ProfilePage({
               global_score: profileData.global_score,
               plan: profileData.plan,
               is_own_profile: profileData.is_own_profile,
+              favorites_count: profileData.favorites_count,
             }}
           />
         </Section>
@@ -225,6 +228,7 @@ export default async function ProfilePage({
             social_links: full.social_links,
             score_delta: full.score_delta,
             is_own_profile: full.is_own_profile,
+            favorites_count: full.favorites_count,
           }}
         />
       </Section>

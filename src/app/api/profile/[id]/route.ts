@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findProfileById } from '@/repositories/ProfileRepository';
-import { findUserById } from '@/repositories/UserRepository';
+import { findUserById, isFavorited } from '@/repositories/UserRepository';
 import { findAnalysesByProfileIdPaginated } from '@/repositories/AiAnalysisRepository';
 import { findVictoryHistoryByUserId } from '@/repositories/ChallengeRepository';
 import mongoose from 'mongoose';
@@ -106,6 +106,11 @@ export async function GET(
     const profileOwnerUser = await findUserById(profile.user_id.toString());
     const ownerPlan = profileOwnerUser?.subscriptionStatus ?? 'FREE';
 
+    const viewerHasFavorited =
+      viewerId && !isOwnProfile
+        ? await isFavorited(viewerId, String(profile._id))
+        : false;
+
     // Base data (always returned)
     const baseData = {
       id: String(profile._id),
@@ -116,6 +121,8 @@ export async function GET(
       plan: ownerPlan,
       viewer_permission,
       is_own_profile: isOwnProfile,
+      favorites_count: profile.favorites_count ?? 0,
+      is_favorited: viewerHasFavorited,
     };
 
     // Partial response for FREE viewing other profiles

@@ -52,6 +52,8 @@ export interface IProfile extends Document {
   booyah_daily_count: number;
   booyah_daily_reset: Date;
   booyah_victories: IBooyahVictory[];
+  /** Denormalized count of users who have favorited this profile */
+  favorites_count: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,6 +89,7 @@ const ProfileSchema: Schema<IProfile> = new Schema(
       losses: { type: Number, default: 0 },
       headshot_rate: { type: Number, default: 0 },
     },
+    favorites_count: { type: Number, default: 0, min: 0 },
     booyah_daily_count: { type: Number, default: 0 },
     booyah_daily_reset: { type: Date, default: () => new Date(0) },
     booyah_victories: [
