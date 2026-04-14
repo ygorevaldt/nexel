@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { BooyahTab } from "./_components/BooyahTab";
 
 const DAILY_PRO_LIMIT = 5;
 
@@ -55,6 +56,21 @@ interface AnalysisData {
   recommended_playstyle: string;
 }
 
+interface BooyahVictory {
+  match_type: 'SOLO' | 'SQUAD';
+  game_mode: 'RANKED_SOLO' | 'RANKED_SQUAD';
+  kills: number;
+  date: string;
+}
+
+interface BooyahStats {
+  total: number;
+  solo: number;
+  squad: number;
+  total_kills: number;
+  avg_kills: number;
+}
+
 interface ProfileState {
   globalScore: number;
   scoreHistory: { score: number; date: string }[];
@@ -64,6 +80,10 @@ interface ProfileState {
   highlighted: string[];
   dailyUsed: number;
   dailyLimit: number;
+  booyahVictories: BooyahVictory[];
+  booyahStats: BooyahStats;
+  booyahDailyUsed: number;
+  booyahDailyLimit: number;
 }
 
 export default function DashboardPage() {
@@ -81,13 +101,15 @@ export default function DashboardPage() {
   const fetchProfile = useCallback(async () => {
     if (!session?.user?.id) return;
     try {
-      const [subRes, analysesRes] = await Promise.all([
+      const [subRes, analysesRes, booyahRes] = await Promise.all([
         fetch("/api/subscription"),
         fetch("/api/me/analyses"),
+        fetch("/api/me/booyah"),
       ]);
 
       const sub = subRes.ok ? await subRes.json() : {};
       const analysesJson = analysesRes.ok ? await analysesRes.json() : {};
+      const booyahJson = booyahRes.ok ? await booyahRes.json() : {};
 
       setProfileData({
         subscriptionStatus: sub.subscriptionStatus ?? "FREE",
@@ -113,6 +135,10 @@ export default function DashboardPage() {
         highlighted: analysesJson.highlighted ?? [],
         dailyUsed: analysesJson.dailyUsed ?? 0,
         dailyLimit: analysesJson.dailyLimit ?? DAILY_PRO_LIMIT,
+        booyahVictories: booyahJson.victories ?? [],
+        booyahStats: booyahJson.stats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 },
+        booyahDailyUsed: booyahJson.dailyUsed ?? 0,
+        booyahDailyLimit: booyahJson.dailyLimit ?? 3,
       });
     } catch {
       // silent
@@ -382,11 +408,10 @@ export default function DashboardPage() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-3 mb-5 md:mb-8 h-12">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4 mb-5 md:mb-8 h-12">
           <TabsTrigger value="overview" className="h-full rounded-lg">Visão Geral</TabsTrigger>
-          <TabsTrigger value="gallery" className="h-full rounded-lg">
-            Minhas Gameplays
-          </TabsTrigger>
+          <TabsTrigger value="gallery" className="h-full rounded-lg">Gameplays</TabsTrigger>
+          <TabsTrigger value="booyah" className="h-full rounded-lg">Booyah 🏆</TabsTrigger>
           <TabsTrigger value="history" className="h-full rounded-lg">Evolução</TabsTrigger>
         </TabsList>
 
@@ -624,6 +649,17 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* ─── Booyah Tab ─── */}
+        <TabsContent value="booyah">
+          <BooyahTab
+            victories={profileData?.booyahVictories ?? []}
+            stats={profileData?.booyahStats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 }}
+            dailyUsed={profileData?.booyahDailyUsed ?? 0}
+            dailyLimit={profileData?.booyahDailyLimit ?? 3}
+            onVictoryRecorded={fetchProfile}
+          />
         </TabsContent>
 
         {/* ─── Evolution Tab ─── */}

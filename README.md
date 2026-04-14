@@ -18,7 +18,10 @@ Através do processamento *client-side* com **FFmpeg WASM** e a tecnologia **Goo
 *   **Eficiência de Rotação:** Inteligência de mapa, timing de zona e tomada de decisão.
 *   **Relatório de Recrutador:** Feedback técnico detalhado com pontos de melhoria e elogios técnicos.
 
-### 3. Arena de Desafios & Ranking
+### 3. Booyah — Registro de Vitórias (PRO/SCOUT)
+O jogador envia o print da tela de resultados de uma partida ranqueada. O **Gemini Flash** analisa o print em uma única chamada, extraindo os dados da vitória e verificando a autenticidade da imagem simultaneamente (anti-fraude). O print nunca é armazenado — trafega em memória e é descartado após a análise. Vitórias SOLO e SQUAD são contabilizadas separadamente com total de kills por partida. Prints duplicados são detectados via SHA-256 e rejeitados sem consumir o limite diário.
+
+### 4. Arena de Desafios & Ranking
 Módulo para confrontos (1v1 ou 4x4) com sistema de ranking global. O posicionamento no leaderboard é determinado pela consistência de vitórias e pelo score técnico atribuído pela IA, criando um ambiente competitivo meritocrático.
 
 ### 4. Monetização
@@ -46,6 +49,10 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ### Análise de IA
 *   `POST /api/analyze`: Recebe frames de vídeo (base64) e o ID do perfil. Retorna um objeto JSON estruturado com scores e feedback técnico. Implementa *Context Caching* para otimização de custos e latência.
+
+### Booyah
+*   `POST /api/me/booyah`: Recebe um print de vitória em base64. Analisa com Gemini (anti-fraude + extração de dados). Registra a vitória no perfil se válida. Limites: FREE 3/dia, PRO 10/dia, SCOUT 10/dia. Prints duplicados (SHA-256) retornam 409 sem consumir o limite diário.
+*   `GET /api/me/booyah`: Retorna o histórico de vitórias do usuário logado com stats agregadas (total, solo, squad, kills). Suporta filtro por `?month=` e `?year=`.
 
 ### Perfil e Social
 *   `GET /api/profile/[id]`: Retorna os dados públicos do jogador, incluindo histórico de scores de IA.

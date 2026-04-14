@@ -5,6 +5,14 @@ export interface IAiScoreEntry {
   date: Date;
 }
 
+export interface IBooyahVictory {
+  match_type: 'SOLO' | 'SQUAD';
+  game_mode: 'RANKED_SOLO' | 'RANKED_SQUAD';
+  kills: number;
+  date: Date;
+  content_hash: string;
+}
+
 export interface IProfile extends Document {
   user_id: mongoose.Types.ObjectId;
   game_id: string; // Free Fire ID
@@ -41,6 +49,9 @@ export interface IProfile extends Document {
     losses: number;
     headshot_rate: number;
   };
+  booyah_daily_count: number;
+  booyah_daily_reset: Date;
+  booyah_victories: IBooyahVictory[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +87,17 @@ const ProfileSchema: Schema<IProfile> = new Schema(
       losses: { type: Number, default: 0 },
       headshot_rate: { type: Number, default: 0 },
     },
+    booyah_daily_count: { type: Number, default: 0 },
+    booyah_daily_reset: { type: Date, default: () => new Date(0) },
+    booyah_victories: [
+      {
+        match_type: { type: String, enum: ['SOLO', 'SQUAD'], required: true },
+        game_mode: { type: String, enum: ['RANKED_SOLO', 'RANKED_SQUAD'], required: true },
+        kills: { type: Number, default: 0 },
+        date: { type: Date, default: Date.now },
+        content_hash: { type: String, required: true },
+      },
+    ],
   },
   { timestamps: true }
 );
