@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { findProfiles } from '@/repositories/ProfileRepository';
+import { getFavoritedProfileIds } from '@/repositories/UserRepository';
 
 /**
  * GET /api/ranking
@@ -13,6 +15,7 @@ import { findProfiles } from '@/repositories/ProfileRepository';
  *   - minScore: number  (minimum AI score, 0-100)
  *   - rank: string  (e.g. 'Diamond', 'Gold')
  *   - limit: number  (max 50, default 30)
+ *   - favoritesOnly: boolean  (show only favorited profiles)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -21,8 +24,25 @@ export async function GET(req: NextRequest) {
     const minScore = searchParams.get('minScore') ? Number(searchParams.get('minScore')) : undefined;
     const rank = searchParams.get('rank') ?? undefined;
     const limit = Math.min(Number(searchParams.get('limit') ?? 30), 50);
+    const favoritesOnly = searchParams.get('favoritesOnly') === 'true';
 
-    const profiles = await findProfiles({ sortBy, minScore, rank }, limit);
+    const session = await auth();
+    const viewerId = session?.user?.id ?? null;
+
+    let favoritedIds: string[] | undefined;
+    if (favoritesOnly && viewerId) {
+      favoritedIds = await getFavoritedProfileIds(viewerId);
+    } else if (favoritesOnly && !viewerId) {
+      return NextResponse.json({ data: [] });
+    }
+
+    const profiles = await findProfiles({ sortBy, minScore, rank, favoritedIds }, limit);
+
+    const viewerFavoritedSet = viewerId && !favoritesOnly
+      ? new Set(await getFavoritedProfileIds(viewerId))
+      : favoritedIds
+        ? new Set(favoritedIds)
+        : null;
 
     const data = profiles.map((p, idx) => {
       const matches = p.metrics?.matches_played ?? 0;
@@ -34,9 +54,11 @@ export async function GET(req: NextRequest) {
         (p.global_score ?? 0) * 0.6 + winRate * 0.4
       );
 
+      const profileId = String(p._id);
+
       return {
         position: idx + 1,
-        id: String(p._id),
+        id: profileId,
         nickname: p.nickname,
         rank: p.rank,
         globalScore,
@@ -45,6 +67,8 @@ export async function GET(req: NextRequest) {
         wins,
         matches,
         headshot_rate: p.metrics?.headshot_rate ?? 0,
+        favorites_count: p.favorites_count ?? 0,
+        is_favorited: viewerFavoritedSet ? viewerFavoritedSet.has(profileId) : false,
       };
     });
 
