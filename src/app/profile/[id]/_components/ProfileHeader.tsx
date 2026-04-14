@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Star } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +13,7 @@ interface ProfileHeaderProps {
     social_links?: { instagram?: string; youtube?: string; tiktok?: string };
     score_delta?: number | null;
     is_own_profile: boolean;
+    favorites_count?: number;
   };
 }
 
@@ -74,6 +75,13 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
               <span className="text-xs text-muted-foreground">
                 ID: {profile.game_id}
               </span>
+              {/* Favorites count */}
+              {(profile.favorites_count ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs text-yellow-400 font-medium">
+                  <Star className="h-3 w-3 fill-yellow-400" />
+                  {profile.favorites_count}
+                </span>
+              )}
             </div>
 
             {/* Bio */}
