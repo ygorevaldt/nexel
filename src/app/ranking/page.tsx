@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Trophy, TrendingUp, Medal, Award, Lock, Crown } from "lucide-react";
+import { Trophy, TrendingUp, Medal, Award, Lock, Crown, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface RankingEntry {
   position: number;
@@ -22,6 +24,8 @@ interface RankingEntry {
   winRate: number;
   wins: number;
   matches: number;
+  favorites_count: number;
+  is_favorited: boolean;
 }
 
 const RANKS = ["Todos", "Bronze", "Silver", "Gold", "Diamond", "Heroico", "Grão-Mestre"];
@@ -46,20 +50,21 @@ export default function RankingPage() {
   const [loading, setLoading] = useState(true);
   const [rank, setRank] = useState("Todos");
   const [sortBy, setSortBy] = useState("global_score");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
   const subscriptionStatus: string =
     (session?.user as { subscriptionStatus?: string })?.subscriptionStatus ?? "FREE";
   const isScout = subscriptionStatus === "SCOUT";
   const canAccess = subscriptionStatus === "PRO" || subscriptionStatus === "SCOUT";
 
-  // Redirect unauthenticated or FREE users
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/ranking");
     }
   }, [status, router]);
 
-  const fetchRanking = async () => {
+  const fetchRanking = useCallback(async () => {
     if (!canAccess) return;
     setLoading(true);
     try {
@@ -67,6 +72,7 @@ export default function RankingPage() {
       if (rank && rank !== "Todos") params.set("rank", rank);
       params.set("sortBy", sortBy);
       params.set("limit", "30");
+      if (favoritesOnly) params.set("favoritesOnly", "true");
 
       const res = await fetch(`/api/ranking?${params.toString()}`);
       const json = await res.json();
@@ -76,12 +82,46 @@ export default function RankingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [rank, sortBy, canAccess, favoritesOnly]);
 
   useEffect(() => {
     fetchRanking();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rank, sortBy, canAccess]);
+  }, [fetchRanking]);
+
+  const handleToggleFavorite = async (profileId: string) => {
+    if (!session?.user?.id) return;
+    setTogglingFavorite(profileId);
+    try {
+      const res = await fetch("/api/me/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao favoritar.");
+        return;
+      }
+
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === profileId
+            ? { ...e, is_favorited: json.favorited, favorites_count: json.favorites_count }
+            : e
+        )
+      );
+
+      if (favoritesOnly && !json.favorited) {
+        setEntries((prev) => prev.filter((e) => e.id !== profileId));
+      }
+
+      toast.success(json.favorited ? "Adicionado aos favoritos!" : "Removido dos favoritos.");
+    } catch {
+      toast.error("Erro ao favoritar. Tente novamente.");
+    } finally {
+      setTogglingFavorite(null);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -95,7 +135,6 @@ export default function RankingPage() {
 
   if (status === "unauthenticated") return null;
 
-  // FREE users: show upsell wall
   if (!canAccess) {
     return (
       <div className="container max-w-7xl mx-auto py-12 md:py-24 px-4 flex flex-col items-center justify-center text-center gap-5 md:gap-6">
@@ -136,7 +175,7 @@ export default function RankingPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap justify-end">
           <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")}>
             <SelectTrigger className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
               <SelectValue placeholder="Rank" />
@@ -156,11 +195,21 @@ export default function RankingPage() {
               <SelectItem value="headshot_rate">Headshot Rate</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            variant={favoritesOnly ? "default" : "outline"}
+            size="sm"
+            className="h-9 rounded-lg gap-2"
+            onClick={() => setFavoritesOnly((v) => !v)}
+          >
+            <Star className={`h-4 w-4 ${favoritesOnly ? "fill-current" : ""}`} />
+            <span className="hidden sm:inline">Favoritos</span>
+          </Button>
         </div>
       </div>
 
-      {/* Top 3 Podium */}
-      {entries.length >= 3 && (
+      {/* Top 3 Podium — hidden when favorites filter is active */}
+      {!favoritesOnly && entries.length >= 3 && (
         <div className="grid grid-cols-3 gap-2 md:gap-4 mb-2">
           {[entries[1], entries[0], entries[2]].map((entry, pIdx) => {
             const realPos = pIdx === 0 ? 2 : pIdx === 1 ? 1 : 3;
@@ -194,7 +243,8 @@ export default function RankingPage() {
       <Card className="border-border/30 bg-card/20 overflow-hidden">
         <CardHeader className="bg-muted/20 border-b border-border/30 py-3 px-4">
           <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" /> Leaderboard
+            <TrendingUp className="h-4 w-4 text-primary" />
+            {favoritesOnly ? "Meus Favoritos" : "Leaderboard"}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -206,8 +256,17 @@ export default function RankingPage() {
             </div>
           ) : entries.length === 0 ? (
             <div className="py-16 text-center text-muted-foreground">
-              <Trophy className="h-10 w-10 mx-auto mb-3 opacity-20" />
-              <p>Nenhum jogador no ranking ainda</p>
+              {favoritesOnly ? (
+                <>
+                  <Star className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p>Nenhum favorito ainda. Favorite jogadores na vitrine de talentos.</p>
+                </>
+              ) : (
+                <>
+                  <Trophy className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                  <p>Nenhum jogador no ranking ainda</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-border/20">
@@ -221,7 +280,7 @@ export default function RankingPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: idx * 0.03 }}
-                    className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors group"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group"
                   >
                     <div className={`w-8 text-center shrink-0 ${posStyle}`}>
                       {Icon ? <Icon className="h-5 w-5 mx-auto" /> : entry.position}
@@ -234,7 +293,15 @@ export default function RankingPage() {
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm truncate">{entry.nickname}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm truncate">{entry.nickname}</p>
+                        {entry.favorites_count > 0 && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-yellow-400/80">
+                            <Star className="h-2.5 w-2.5 fill-yellow-400/80" />
+                            {entry.favorites_count}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-[9px] uppercase font-bold h-4">
                           {entry.rank}
@@ -262,6 +329,19 @@ export default function RankingPage() {
                       <div className="text-[10px] text-muted-foreground uppercase">Score</div>
                       <div className="font-black text-base text-primary">{entry.globalScore}</div>
                     </div>
+
+                    {/* Favorite button */}
+                    <button
+                      onClick={() => handleToggleFavorite(entry.id)}
+                      disabled={togglingFavorite === entry.id}
+                      className={`shrink-0 h-7 w-7 flex items-center justify-center rounded-full border transition-all ${
+                        entry.is_favorited
+                          ? "border-yellow-500/40 text-yellow-400 bg-yellow-500/10"
+                          : "border-border/30 text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:border-yellow-500/40 hover:text-yellow-400"
+                      }`}
+                    >
+                      <Star className={`h-3.5 w-3.5 ${entry.is_favorited ? "fill-yellow-400" : ""}`} />
+                    </button>
 
                     {/* Profile link — SCOUT only */}
                     {isScout ? (
