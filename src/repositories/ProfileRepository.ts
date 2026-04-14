@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import { Profile, IProfile } from '@/models/Profile';
+import { Profile, IProfile, IBooyahVictory } from '@/models/Profile';
 
 export interface ProfileFilters {
   search?: string;
@@ -175,4 +175,110 @@ export async function toggleAnalysisHighlight(
     highlighted: !isHighlighted,
     highlightedIds: profile.highlighted_analysis_ids.map((id) => id.toString()),
   };
+}
+
+// ─── Booyah ──────────────────────────────────────────────────────────────────
+
+const BRASILIA_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function getMidnightBrasilia(): Date {
+  const nowUtc = Date.now();
+  const nowBrasilia = nowUtc - BRASILIA_OFFSET_MS;
+  const midnightBrasiliaMs = nowBrasilia - (nowBrasilia % (24 * 60 * 60 * 1000));
+  return new Date(midnightBrasiliaMs + BRASILIA_OFFSET_MS);
+}
+
+export interface BooyahDailyState {
+  dailyCount: number;
+  resetAt: Date;
+}
+
+/**
+ * Returns the current booyah daily count, applying a reset if the day has changed
+ * (midnight Brasília UTC-3). Does NOT mutate the document.
+ */
+export async function getBooyahDailyState(profileId: string): Promise<BooyahDailyState> {
+  await dbConnect();
+  const profile = await Profile.findById(profileId).lean();
+  if (!profile) return { dailyCount: 0, resetAt: new Date() };
+
+  const midnightBrasilia = getMidnightBrasilia();
+  const lastReset = profile.booyah_daily_reset ? new Date(profile.booyah_daily_reset) : new Date(0);
+  const needsReset = lastReset < midnightBrasilia;
+
+  return {
+    dailyCount: needsReset ? 0 : (profile.booyah_daily_count ?? 0),
+    resetAt: midnightBrasilia,
+  };
+}
+
+/**
+ * Increments the booyah daily counter, resetting it first if the day changed.
+ * Called once per submission, before Gemini analysis (counts regardless of outcome).
+ */
+export async function incrementBooyahDailyCount(profileId: string): Promise<void> {
+  await dbConnect();
+  const midnightBrasilia = getMidnightBrasilia();
+
+  const profile = await Profile.findById(profileId);
+  if (!profile) return;
+
+  const lastReset = profile.booyah_daily_reset ? new Date(profile.booyah_daily_reset) : new Date(0);
+
+  if (lastReset < midnightBrasilia) {
+    profile.booyah_daily_count = 1;
+    profile.booyah_daily_reset = new Date();
+  } else {
+    profile.booyah_daily_count = (profile.booyah_daily_count ?? 0) + 1;
+  }
+
+  await profile.save();
+}
+
+/**
+ * Returns true if the user already submitted this exact print (per-user scope).
+ */
+export async function isBooyahVictoryDuplicate(profileId: string, contentHash: string): Promise<boolean> {
+  await dbConnect();
+  const profile = await Profile.findById(profileId).lean();
+  if (!profile) return false;
+  return (profile.booyah_victories ?? []).some((v) => v.content_hash === contentHash);
+}
+
+/**
+ * Pushes a validated Booyah victory into the player's profile.
+ */
+export async function addBooyahVictory(
+  profileId: string,
+  victory: Omit<IBooyahVictory, 'date'>
+): Promise<void> {
+  await dbConnect();
+  await Profile.findByIdAndUpdate(profileId, {
+    $push: {
+      booyah_victories: { ...victory, date: new Date() },
+    },
+  });
+}
+
+/**
+ * Returns the player's booyah victories, optionally filtered by month and year.
+ */
+export async function findBooyahVictories(
+  profileId: string,
+  filter?: { month?: number; year?: number }
+): Promise<IBooyahVictory[]> {
+  await dbConnect();
+  const profile = await Profile.findById(profileId).lean();
+  if (!profile) return [];
+
+  let victories = profile.booyah_victories ?? [];
+
+  if (filter?.year !== undefined) {
+    victories = victories.filter((v) => new Date(v.date).getFullYear() === filter.year);
+  }
+  if (filter?.month !== undefined) {
+    victories = victories.filter((v) => new Date(v.date).getMonth() + 1 === filter.month);
+  }
+
+  return victories.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
