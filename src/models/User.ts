@@ -16,6 +16,8 @@ export interface IUser extends Document {
   stripeSubscriptionId?: string;
   /** When the current subscription period ends */
   subscriptionEndDate?: Date;
+  /** Profile IDs this user has favorited */
+  favorited_profile_ids: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +34,7 @@ const UserSchema: Schema<IUser> = new Schema(
     stripeCustomerId: { type: String },
     stripeSubscriptionId: { type: String },
     subscriptionEndDate: { type: Date },
+    favorited_profile_ids: [{ type: Schema.Types.ObjectId, ref: 'Profile', default: [] }],
   },
   { timestamps: true }
 );
