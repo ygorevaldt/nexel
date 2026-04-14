@@ -7,6 +7,8 @@ export interface ProfileFilters {
   minScore?: number;
   rank?: string;
   sortBy?: 'global_score' | 'wins' | 'headshot_rate';
+  /** When provided, only profiles whose _id is in this list are returned */
+  favoritedIds?: string[];
 }
 
 /**
@@ -64,6 +66,12 @@ export async function findProfiles(
   }
   if (typeof filters.minScore === 'number') {
     query.global_score = { $gte: filters.minScore };
+  }
+  if (filters.favoritedIds && filters.favoritedIds.length > 0) {
+    query._id = { $in: filters.favoritedIds.map((id) => new mongoose.Types.ObjectId(id)) };
+  } else if (filters.favoritedIds && filters.favoritedIds.length === 0) {
+    // Empty favorites list — return nothing
+    return [];
   }
 
   const sort: Record<string, 1 | -1> = {};
@@ -175,6 +183,19 @@ export async function toggleAnalysisHighlight(
     highlighted: !isHighlighted,
     highlightedIds: profile.highlighted_analysis_ids.map((id) => id.toString()),
   };
+}
+
+// ─── Favorites ───────────────────────────────────────────────────────────────
+
+/**
+ * Adjusts the denormalized favorites_count by +1 or -1.
+ */
+export async function adjustFavoritesCount(
+  profileId: string,
+  delta: 1 | -1
+): Promise<void> {
+  await dbConnect();
+  await Profile.findByIdAndUpdate(profileId, { $inc: { favorites_count: delta } });
 }
 
 // ─── Booyah ──────────────────────────────────────────────────────────────────
