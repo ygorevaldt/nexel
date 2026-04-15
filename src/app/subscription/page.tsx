@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Plan {
   id: string;
@@ -67,8 +67,10 @@ export const AVAILABLE_PLANS: Plan[] = [
 export default function SubscriptionPage() {
   const { status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -87,6 +89,19 @@ export default function SubscriptionPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (searchParams.get("success") !== "true") return;
+
+    toast.success("Assinatura ativada com sucesso!", {
+      description: "Seu plano foi atualizado. Aproveite os novos recursos.",
+    });
+
+    // Clean ?success=true from the URL. The jwt callback already synced the new
+    // subscriptionStatus from DB during this page load (hard redirect from Stripe),
+    // so all components already have the correct plan — no session update needed.
+    router.replace("/subscription");
+  }, [searchParams, router]);
+
   const handleUpgrade = async (plan: Plan) => {
     if (status === "unauthenticated") {
       toast.info("Faça login para assinar", {
@@ -96,13 +111,32 @@ export default function SubscriptionPage() {
       return;
     }
 
-    if (!plan.stripePriceId) {
+    const serverPlan = data?.availablePlans.find((p) => p.id === plan.id);
+    if (!serverPlan?.stripePriceId) {
       toast.info("Integração com pagamento em breve! 🚀", {
         description: "Nossa equipe está finalizando a integração com Stripe. Em breve você poderá assinar.",
       });
       return;
     }
-    toast.info("Redirecionando para o checkout...");
+
+    setCheckingOut(plan.id);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao iniciar checkout");
+        return;
+      }
+      window.location.href = json.checkoutUrl;
+    } catch {
+      toast.error("Erro de conexão. Tente novamente.");
+    } finally {
+      setCheckingOut(null);
+    }
   };
 
   const currentStatus = data?.subscriptionStatus ?? "FREE";
@@ -238,12 +272,17 @@ export default function SubscriptionPage() {
 
                   <button
                     onClick={() => handleUpgrade(plan)}
-                    disabled={isCurrentPlan}
+                    disabled={isCurrentPlan || checkingOut !== null}
                     className={`w-full h-11 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${planColors.button}`}
                   >
                     {isCurrentPlan ? (
                       <>
                         <CheckCircle className="h-4 w-4" /> Plano Ativo
+                      </>
+                    ) : checkingOut === plan.id ? (
+                      <>
+                        <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                        Redirecionando...
                       </>
                     ) : (
                       <>
@@ -263,7 +302,7 @@ export default function SubscriptionPage() {
                     </p>
                   )}
 
-                  {!plan.stripePriceId && (
+                  {!data?.availablePlans.find((p) => p.id === plan.id)?.stripePriceId && (
                     <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-wider">
                       Pagamentos via Stripe — em breve
                     </p>

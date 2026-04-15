@@ -1,32 +1,9 @@
-import { NextResponse } from 'next/server';
-
-/**
- * POST /api/webhook/stripe
- *
- * Handles Stripe webhook events for subscription lifecycle management.
- * 
- * PRODUCTION SETUP REQUIRED:
- * 1. Install stripe: npm install stripe
- * 2. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET in .env.local
- * 3. Configure your Stripe Dashboard webhook to send events to this endpoint
- * 4. Uncomment the Stripe SDK code below
- *
- * Handled events:
- *   - checkout.session.completed  → Activate PRO or SCOUT subscription
- *   - customer.subscription.deleted → Revert to FREE
- *   - invoice.payment_failed → Mark subscription as past_due (optional)
- */
-
-// ─── STRIPE PRODUCTION INTEGRATION ───────────────────────────────────────────
-// Uncomment this entire block when Stripe is installed and configured:
-/*
+import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { findUserByStripeCustomerId, updateSubscription, cancelSubscription } from '@/repositories/UserRepository';
+import { findUserById, findUserByStripeCustomerId, updateSubscription, cancelSubscription } from '@/repositories/UserRepository';
 import { createTransaction } from '@/repositories/TransactionRepository';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -52,14 +29,24 @@ export async function POST(req: NextRequest) {
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
         const planId = session.metadata?.plan as 'PRO' | 'SCOUT';
+        const userId = session.metadata?.userId;
 
-        const user = await findUserByStripeCustomerId(customerId);
+        if (!userId) {
+          console.error('[Stripe Webhook] Missing userId in session metadata:', session.id);
+          break;
+        }
+
+        // userId in metadata is the authoritative lookup — stripeCustomerId may not be
+        // persisted yet on first-time checkout (customer created by Stripe during session)
+        const user = await findUserById(userId);
         if (!user) {
-          console.error('[Stripe Webhook] User not found for customer:', customerId);
+          console.error('[Stripe Webhook] User not found for userId:', userId);
           break;
         }
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        // current_period_end lives on SubscriptionItem since Stripe SDK v17
+        const periodEnd = subscription.items.data[0]?.current_period_end;
 
         await updateSubscription(String(user._id), {
           subscriptionStatus: planId,
@@ -67,7 +54,7 @@ export async function POST(req: NextRequest) {
           role: planId,
           stripeCustomerId: customerId,
           stripeSubscriptionId: subscriptionId,
-          subscriptionEndDate: new Date(subscription.current_period_end * 1000),
+          subscriptionEndDate: periodEnd ? new Date(periodEnd * 1000) : undefined,
         });
 
         await createTransaction({
@@ -107,15 +94,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
-}
-*/
-// ─────────────────────────────────────────────────────────────────────────────
-
-// PLACEHOLDER: Returns 501 until Stripe is configured
-export async function POST() {
-  console.warn('[Stripe Webhook] Stripe not configured. Uncomment the production code in this file.');
-  return NextResponse.json(
-    { error: 'Stripe integration not yet configured. See comments in /api/webhook/stripe/route.ts' },
-    { status: 501 }
-  );
 }

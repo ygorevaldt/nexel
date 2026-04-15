@@ -56,24 +56,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
       }
 
-      // Self-heal stale tokens: if subscriptionStatus is missing from this JWT
-      // (issued before the field was added), refresh from DB once.
-      if (token.id && !token.subscriptionStatus) {
-        try {
-          await dbConnect();
-          const freshUser = await User.findById(token.id).lean();
-          if (freshUser) {
-            token.role = freshUser.role;
-            token.subscriptionStatus = freshUser.subscriptionStatus;
-          }
-        } catch {
-          // DB lookup failed — leave token as-is
-        }
-      }
-
+      // Handle name updates from profile settings
       if ("trigger" in params && params.trigger === "update" && "session" in params) {
         const session = params.session as { name?: string };
         if (session?.name) token.name = session.name;
+      }
+
+      // Always sync subscriptionStatus and role from DB so any plan change
+      // (e.g. after Stripe webhook) is reflected immediately on next session fetch,
+      // without requiring re-login. The jwt callback only runs when the session is
+      // actively fetched (page load, window focus), not on every HTTP request.
+      if (token.id) {
+        try {
+          await dbConnect();
+          const freshUser = await User.findById(token.id)
+            .select('subscriptionStatus role')
+            .lean();
+          if (freshUser) {
+            token.subscriptionStatus = freshUser.subscriptionStatus;
+            token.role = freshUser.role;
+          }
+        } catch {
+          // DB unreachable — keep existing token values until next fetch
+        }
       }
 
       return token;
