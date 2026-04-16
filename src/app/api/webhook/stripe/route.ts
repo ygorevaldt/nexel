@@ -70,13 +70,66 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        if (subscription.status !== 'active') break;
+
+        const customerId = subscription.customer as string;
+        const priceId = subscription.items.data[0]?.price.id;
+
+        const planId =
+          priceId === process.env.STRIPE_PRICE_SCOUT ? ('SCOUT' as const)
+          : priceId === process.env.STRIPE_PRICE_PRO  ? ('PRO' as const)
+          : null;
+
+        if (!planId) {
+          console.log(`[Stripe Webhook] subscription.updated: price desconhecido ${priceId}, ignorando`);
+          break;
+        }
+
+        const userToUpdate = await findUserByStripeCustomerId(customerId);
+        if (!userToUpdate) {
+          console.error('[Stripe Webhook] User not found for customer:', customerId);
+          break;
+        }
+
+        const periodEnd = subscription.items.data[0]?.current_period_end;
+
+        await updateSubscription(String(userToUpdate._id), {
+          subscriptionStatus: planId,
+          accountType: planId === 'SCOUT' ? 'SCOUT' : 'PLAYER',
+          role: planId,
+          stripeSubscriptionId: subscription.id,
+          subscriptionEndDate: periodEnd ? new Date(periodEnd * 1000) : undefined,
+        });
+
+        console.log(`[Stripe Webhook] Plano sincronizado para ${planId} — usuário ${userToUpdate._id}`);
+        break;
+      }
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+        const deletedSubscriptionId = subscription.id;
 
         const user = await findUserByStripeCustomerId(customerId);
         if (!user) {
           console.error('[Stripe Webhook] User not found for customer:', customerId);
+          break;
+        }
+
+        // Se o usuário já está em FREE, o cancelamento foi processado diretamente
+        // pela rota DELETE /api/me/subscription antes do webhook chegar — não há nada a fazer.
+        if (user.subscriptionStatus === 'FREE') {
+          console.log(`[Stripe Webhook] Cancelamento já processado para usuário ${user._id}, ignorando`);
+          break;
+        }
+
+        // Guard: só cancela se a assinatura deletada ainda é a ativa no banco.
+        // Em upgrades, a assinatura antiga pode ser deletada depois que a nova já
+        // foi salva — ignorar esse evento evita reverter o plano incorretamente.
+        if (user.stripeSubscriptionId !== deletedSubscriptionId) {
+          console.log(`[Stripe Webhook] Deleção de assinatura antiga ignorada: ${deletedSubscriptionId} (usuário ${user._id} em ${user.stripeSubscriptionId})`);
           break;
         }
 
