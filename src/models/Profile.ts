@@ -33,6 +33,8 @@ export interface IProfile extends Document {
   contact_info?: {
     discord?: string;
     whatsapp?: string;
+    email?: string;
+    instagram?: string;
   };
   /** URL of the player's best gameplay clip, shown in the Scout View */
   highlight_video_url?: string;
@@ -74,6 +76,8 @@ const ProfileSchema: Schema<IProfile> = new Schema(
     contact_info: {
       discord: String,
       whatsapp: String,
+      email: String,
+      instagram: String,
     },
     highlight_video_url: { type: String },
     highlighted_analysis_ids: [{ type: Schema.Types.ObjectId, ref: 'AiAnalysis' }],

@@ -99,6 +99,28 @@ export async function findProfileByUserId(userId: string): Promise<IProfile | nu
   return Profile.findOne({ user_id: userId }).lean();
 }
 
+export interface ProfileSettingsInput {
+  nickname?: string;
+  contact_info?: {
+    discord?: string;
+    whatsapp?: string;
+    email?: string;
+    instagram?: string;
+  };
+}
+
+export async function updateProfileSettings(
+  userId: string,
+  data: ProfileSettingsInput
+): Promise<IProfile | null> {
+  await dbConnect();
+  return Profile.findOneAndUpdate(
+    { user_id: userId },
+    { $set: data },
+    { new: true }
+  ).lean();
+}
+
 export async function upsertProfile(
   userId: string,
   data: Partial<Omit<IProfile, '_id' | 'user_id' | 'createdAt' | 'updatedAt'>>

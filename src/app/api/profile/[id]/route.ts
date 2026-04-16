@@ -157,7 +157,7 @@ export async function GET(
       : null;
 
     // Contact info — SCOUT only
-    let contactInfo: { discord?: string; whatsapp?: string } | null = null;
+    let contactInfo: { discord?: string; whatsapp?: string; email?: string; instagram?: string } | null = null;
     if (viewerSubscription === 'SCOUT') {
       contactInfo = profile.contact_info ?? null;
     }

@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { Trophy, TrendingUp, BrainCircuit, Swords, Medal, Film, MessageCircle, Shield } from "lucide-react";
+import { Trophy, TrendingUp, BrainCircuit, Swords, Medal, Film, MessageCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileHeader } from "./_components/ProfileHeader";
 import { ScoreCards } from "./_components/ScoreCards";
@@ -9,6 +9,7 @@ import { VictoryHistory } from "./_components/VictoryHistory";
 import { BadgesGrid } from "./_components/BadgesGrid";
 import { ClipsList } from "./_components/ClipsList";
 import { UpgradeCTA } from "./_components/UpgradeCTA";
+import { ContactInfo } from "./_components/ContactInfo";
 
 // Re-export types used by components
 export interface AnalysisItem {
@@ -86,7 +87,7 @@ interface ProfileData {
     analyzed_at: string;
     score: number;
   }>;
-  contact_info: { discord?: string; whatsapp?: string } | null;
+  contact_info: { discord?: string; whatsapp?: string; email?: string; instagram?: string } | null;
   is_contact_visible: boolean;
   viewer_permission: "partial" | "full";
   is_own_profile: boolean;
@@ -351,30 +352,8 @@ export default async function ProfilePage({
                 Contato (Scout)
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {full.contact_info.discord && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                  <Shield className="h-4 w-4 text-indigo-400 shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Discord</p>
-                    <p className="text-sm font-medium">{full.contact_info.discord}</p>
-                  </div>
-                </div>
-              )}
-              {full.contact_info.whatsapp && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">WhatsApp</p>
-                    <p className="text-sm font-medium">{full.contact_info.whatsapp}</p>
-                  </div>
-                </div>
-              )}
-              {!full.contact_info.discord && !full.contact_info.whatsapp && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Jogador não informou dados de contato ainda.
-                </p>
-              )}
+            <CardContent>
+              <ContactInfo contactInfo={full.contact_info} />
             </CardContent>
           </Card>
         </Section>
