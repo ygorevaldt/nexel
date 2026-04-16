@@ -1,10 +1,21 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback } from "react";
-import { Crown, CheckCircle, Star, BrainCircuit, Users, Zap, History } from "lucide-react";
+import { Crown, CheckCircle, Star, BrainCircuit, Users, Zap, History, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
@@ -71,6 +82,8 @@ function SubscriptionContent() {
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -92,15 +105,31 @@ function SubscriptionContent() {
   useEffect(() => {
     if (searchParams.get("success") !== "true") return;
 
-    toast.success("Assinatura ativada com sucesso!", {
-      description: "Seu plano foi atualizado. Aproveite os novos recursos.",
-    });
+    const sessionId = searchParams.get("session_id");
 
-    // Clean ?success=true from the URL. The jwt callback already synced the new
-    // subscriptionStatus from DB during this page load (hard redirect from Stripe),
-    // so all components already have the correct plan — no session update needed.
-    router.replace("/subscription");
-  }, [searchParams, router]);
+    const handleSuccess = async () => {
+      // Se há um session_id, veio do checkout Stripe — verifica e ativa o plano
+      // diretamente sem depender do timing do webhook checkout.session.completed.
+      if (sessionId) {
+        try {
+          await fetch(`/api/checkout/verify?session_id=${sessionId}`);
+        } catch {
+          // Se falhar, o webhook ainda pode ativar — continua o fluxo
+        }
+      }
+
+      // Atualiza os dados exibidos na página após a ativação
+      await fetchData();
+
+      toast.success("Assinatura ativada com sucesso!", {
+        description: "Seu plano foi atualizado. Aproveite os novos recursos.",
+      });
+
+      router.replace("/subscription");
+    };
+
+    handleSuccess();
+  }, [searchParams, router, fetchData]);
 
   const handleUpgrade = async (plan: Plan) => {
     if (status === "unauthenticated") {
@@ -136,6 +165,27 @@ function SubscriptionContent() {
       toast.error("Erro de conexão. Tente novamente.");
     } finally {
       setCheckingOut(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    setCancelDialogOpen(false);
+    setCancelling(true);
+    try {
+      const res = await fetch("/api/me/subscription", { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao cancelar assinatura");
+        return;
+      }
+      toast.success("Assinatura cancelada", {
+        description: "Seu plano foi revertido para FREE.",
+      });
+      await fetchData();
+    } catch {
+      toast.error("Erro de conexão. Tente novamente.");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -193,9 +243,38 @@ function SubscriptionContent() {
               )}
             </div>
           </div>
-          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-            ATIVO
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+              ATIVO
+            </Badge>
+            <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+              <AlertDialogTrigger
+                disabled={cancelling}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 bg-transparent border-0 p-0 cursor-pointer"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Cancelar
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Seu plano será revertido para FREE imediatamente. Não há
+                    reembolso do período restante. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleCancel}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Sim, cancelar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </motion.div>
       )}
 

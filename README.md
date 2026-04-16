@@ -27,7 +27,10 @@ Qualquer jogador logado pode favoritar outro jogador com um clique. O número de
 ### 5. Arena de Desafios & Ranking
 Módulo para confrontos (1v1 ou 4x4) com sistema de ranking global. O posicionamento no leaderboard é determinado pela consistência de vitórias e pelo score técnico atribuído pela IA, criando um ambiente competitivo meritocrático.
 
-### 4. Monetização
+### 6. Configurações de Conta
+Página dedicada (`/settings`) onde o jogador pode editar seu nome de exibição (sincronizado entre perfil e navbar), alterar a senha e cadastrar informações de contato (WhatsApp, e-mail, Discord, Instagram) visíveis exclusivamente para usuários com plano Scout.
+
+### 7. Monetização
 Sistema de assinatura para o plano PRO, com suporte a depósitos e saques seguros.
 
 ---
@@ -67,6 +70,10 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 *   `GET /api/profile/[id]`: Retorna os dados públicos do jogador, incluindo histórico de scores de IA.
 *   `GET /api/feed`: Retorna a lista paginada de jogadores para scouting, com filtros por score e elo.
 *   `GET /api/ranking`: Retorna o leaderboard global baseado em desempenho.
+
+### Configurações de Conta
+*   `PUT /api/me/profile`: Atualiza nickname e informações de contato (discord, whatsapp, email, instagram). Nickname atualizado é sincronizado com `User.name` para manter consistência em toda a plataforma. Requer autenticação.
+*   `PUT /api/me/password`: Troca de senha. Requer autenticação e a senha atual para validação. Body: `{ currentPassword, newPassword }`.
 
 ### Competições e Financeiro
 *   `POST /api/challenges`: Criação e gerenciamento de salas de desafio.

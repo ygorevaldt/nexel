@@ -105,6 +105,16 @@ export async function removeFavorite(userId: string, profileId: string): Promise
   await User.findByIdAndUpdate(userId, { $pull: { favorited_profile_ids: objectId } });
 }
 
+export async function updateUserName(userId: string, name: string): Promise<IUser | null> {
+  await dbConnect();
+  return User.findByIdAndUpdate(userId, { $set: { name } }, { new: true }).lean();
+}
+
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<IUser | null> {
+  await dbConnect();
+  return User.findByIdAndUpdate(userId, { $set: { passwordHash } }, { new: true }).lean();
+}
+
 /**
  * Cancels a user's subscription, reverting them to the FREE tier.
  * Called from the customer.subscription.deleted Stripe webhook event.
@@ -114,12 +124,8 @@ export async function cancelSubscription(userId: string): Promise<IUser | null> 
   return User.findByIdAndUpdate(
     userId,
     {
-      $set: {
-        subscriptionStatus: 'FREE',
-        role: 'FREE',
-        stripeSubscriptionId: undefined,
-        subscriptionEndDate: undefined,
-      },
+      $set: { subscriptionStatus: 'FREE', role: 'FREE' },
+      $unset: { stripeSubscriptionId: '', subscriptionEndDate: '' },
     },
     { new: true }
   ).lean();

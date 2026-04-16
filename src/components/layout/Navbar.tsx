@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   User,
+  Settings,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -151,6 +152,14 @@ export function Navbar() {
                     >
                       <User className="h-4 w-4" />
                       Meu Perfil
+                    </Link>
+                    <Link
+                      href="/settings"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Configurações
                     </Link>
                     <button
                       onClick={() => {
