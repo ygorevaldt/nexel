@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { findProfileByUserId } from '@/repositories/ProfileRepository';
+import { findProfileByUserId, upsertProfile } from '@/repositories/ProfileRepository';
+import { findUserById } from '@/repositories/UserRepository';
 
 export default async function ProfileMePage() {
   const session = await auth();
@@ -8,9 +9,14 @@ export default async function ProfileMePage() {
     redirect('/login');
   }
 
-  const profile = await findProfileByUserId(session.user.id);
+  let profile = await findProfileByUserId(session.user.id);
   if (!profile) {
-    redirect('/dashboard');
+    const user = await findUserById(session.user.id);
+    if (!user) redirect('/login');
+    profile = await upsertProfile(session.user.id, {
+      game_id: user.freefire_id,
+      nickname: user.name,
+    });
   }
 
   redirect(`/profile/${String(profile._id)}`);

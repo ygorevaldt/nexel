@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { checkUserExists, createUser } from '@/repositories/UserRepository';
+import { upsertProfile } from '@/repositories/ProfileRepository';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,11 +29,16 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    await createUser({
+    const newUser = await createUser({
       name: (name as string).trim(),
       email: normalizedEmail,
       freefire_id: normalizedId,
       passwordHash,
+    });
+
+    await upsertProfile(String(newUser._id), {
+      game_id: normalizedId,
+      nickname: (name as string).trim(),
     });
 
     return NextResponse.json({ success: true }, { status: 201 });
