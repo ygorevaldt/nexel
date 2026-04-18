@@ -5,21 +5,11 @@ import { Crown, CheckCircle, Star, BrainCircuit, Users, Zap, History, XCircle } 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PlanChangeModal, PlanConsentAction, PlanTier } from "./_components/PlanChangeModal";
 
 interface Plan {
   id: string;
@@ -43,6 +33,13 @@ interface SubscriptionData {
     amount: number;
     status: string;
   }[];
+}
+
+interface PendingAction {
+  action: PlanConsentAction;
+  fromPlan: PlanTier;
+  toPlan: PlanTier;
+  execute: () => Promise<void>;
 }
 
 export const AVAILABLE_PLANS: Plan[] = [
@@ -75,6 +72,14 @@ export const AVAILABLE_PLANS: Plan[] = [
   },
 ];
 
+const PLAN_ORDER: Record<string, number> = { FREE: 0, PRO: 1, SCOUT: 2 };
+
+function resolveAction(currentStatus: string, targetPlanId: string): PlanConsentAction {
+  const current = PLAN_ORDER[currentStatus] ?? 0;
+  const target = PLAN_ORDER[targetPlanId] ?? 0;
+  return target > current ? 'UPGRADE' : 'DOWNGRADE';
+}
+
 function SubscriptionContent() {
   const { status } = useSession();
   const router = useRouter();
@@ -83,7 +88,7 @@ function SubscriptionContent() {
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -108,8 +113,6 @@ function SubscriptionContent() {
     const sessionId = searchParams.get("session_id");
 
     const handleSuccess = async () => {
-      // Se há um session_id, veio do checkout Stripe — verifica e ativa o plano
-      // diretamente sem depender do timing do webhook checkout.session.completed.
       if (sessionId) {
         try {
           await fetch(`/api/checkout/verify?session_id=${sessionId}`);
@@ -118,7 +121,6 @@ function SubscriptionContent() {
         }
       }
 
-      // Atualiza os dados exibidos na página após a ativação
       await fetchData();
 
       toast.success("Assinatura ativada com sucesso!", {
@@ -131,19 +133,11 @@ function SubscriptionContent() {
     handleSuccess();
   }, [searchParams, router, fetchData]);
 
-  const handleUpgrade = async (plan: Plan) => {
-    if (status === "unauthenticated") {
-      toast.info("Faça login para assinar", {
-        description: "Você será redirecionado para acessar sua conta.",
-      });
-      router.push("/login?callbackUrl=/subscription");
-      return;
-    }
-
+  const executeCheckout = async (plan: Plan) => {
     const serverPlan = data?.availablePlans.find((p) => p.id === plan.id);
     if (!serverPlan?.stripePriceId) {
       toast.info("Integração com pagamento em breve! 🚀", {
-        description: "Nossa equipe está finalizando a integração com Stripe. Em breve você poderá assinar.",
+        description: "Nossa equipe está finalizando a integração com Stripe.",
       });
       return;
     }
@@ -168,8 +162,7 @@ function SubscriptionContent() {
     }
   };
 
-  const handleCancel = async () => {
-    setCancelDialogOpen(false);
+  const executeCancel = async () => {
     setCancelling(true);
     try {
       const res = await fetch("/api/me/subscription", { method: "DELETE" });
@@ -189,6 +182,36 @@ function SubscriptionContent() {
     }
   };
 
+  const handlePlanButtonClick = (plan: Plan) => {
+    if (status === "unauthenticated") {
+      toast.info("Faça login para assinar", {
+        description: "Você será redirecionado para acessar sua conta.",
+      });
+      router.push("/login?callbackUrl=/subscription");
+      return;
+    }
+
+    const currentStatus = data?.subscriptionStatus ?? "FREE";
+    const action = resolveAction(currentStatus, plan.id);
+
+    setPendingAction({
+      action,
+      fromPlan: currentStatus as PlanTier,
+      toPlan: plan.id as PlanTier,
+      execute: () => executeCheckout(plan),
+    });
+  };
+
+  const handleCancelClick = () => {
+    const currentStatus = data?.subscriptionStatus ?? "FREE";
+    setPendingAction({
+      action: 'CANCEL',
+      fromPlan: currentStatus as PlanTier,
+      toPlan: 'FREE',
+      execute: executeCancel,
+    });
+  };
+
   const currentStatus = data?.subscriptionStatus ?? "FREE";
   const isActive = currentStatus !== "FREE";
 
@@ -204,6 +227,18 @@ function SubscriptionContent() {
 
   return (
     <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-10">
+
+      {pendingAction && (
+        <PlanChangeModal
+          open={pendingAction !== null}
+          onOpenChange={(open) => { if (!open) setPendingAction(null); }}
+          action={pendingAction.action}
+          fromPlan={pendingAction.fromPlan}
+          toPlan={pendingAction.toPlan}
+          renewalDate={data?.subscriptionEndDate}
+          onConfirm={pendingAction.execute}
+        />
+      )}
 
       {/* Header */}
       <div className="text-center space-y-6 py-8 md:py-4 md:pb-4">
@@ -247,33 +282,14 @@ function SubscriptionContent() {
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
               ATIVO
             </Badge>
-            <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-              <AlertDialogTrigger
-                disabled={cancelling}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 bg-transparent border-0 p-0 cursor-pointer"
-              >
-                <XCircle className="h-3.5 w-3.5" />
-                Cancelar
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cancelar assinatura?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Seu plano será revertido para FREE imediatamente. Não há
-                    reembolso do período restante. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Manter assinatura</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleCancel}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Sim, cancelar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <button
+              disabled={cancelling}
+              onClick={handleCancelClick}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 bg-transparent border-0 p-0 cursor-pointer"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Cancelar
+            </button>
           </div>
         </motion.div>
       )}
@@ -350,7 +366,7 @@ function SubscriptionContent() {
                   </ul>
 
                   <button
-                    onClick={() => handleUpgrade(plan)}
+                    onClick={() => handlePlanButtonClick(plan)}
                     disabled={isCurrentPlan || checkingOut !== null}
                     className={`w-full h-11 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${planColors.button}`}
                   >
@@ -366,20 +382,14 @@ function SubscriptionContent() {
                     ) : (
                       <>
                         <Zap className="h-4 w-4" />
-                        {plan.id === "SCOUT" && currentStatus === "PRO"
+                        {resolveAction(currentStatus, plan.id) === 'DOWNGRADE'
+                          ? `Fazer Downgrade para ${plan.name}`
+                          : plan.id === "SCOUT" && currentStatus === "PRO"
                           ? "Fazer Upgrade para SCOUT"
                           : `Assinar ${plan.name}`}
                       </>
                     )}
                   </button>
-
-                  {/* PRO → SCOUT upgrade note */}
-                  {plan.id === "SCOUT" && currentStatus === "PRO" && (
-                    <p className="text-center text-[10px] text-amber-400/80 leading-relaxed">
-                      Ao fazer upgrade, o plano SCOUT é ativado imediatamente.
-                      Não há reembolso do período restante do plano anterior.
-                    </p>
-                  )}
 
                   {!data?.availablePlans.find((p) => p.id === plan.id)?.stripePriceId && (
                     <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-wider">
