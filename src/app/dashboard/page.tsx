@@ -80,6 +80,8 @@ interface ProfileState {
   highlighted: string[];
   dailyUsed: number;
   dailyLimit: number;
+  welcomeAnalysisCredits: number;
+  welcomeBooyahCredits: number;
   booyahVictories: BooyahVictory[];
   booyahStats: BooyahStats;
   booyahDailyUsed: number;
@@ -101,15 +103,17 @@ export default function DashboardPage() {
   const fetchProfile = useCallback(async () => {
     if (!session?.user?.id) return;
     try {
-      const [subRes, analysesRes, booyahRes] = await Promise.all([
+      const [subRes, analysesRes, booyahRes, creditsRes] = await Promise.all([
         fetch("/api/subscription"),
         fetch("/api/me/analyses"),
         fetch("/api/me/booyah"),
+        fetch("/api/me/credits"),
       ]);
 
       const sub = subRes.ok ? await subRes.json() : {};
       const analysesJson = analysesRes.ok ? await analysesRes.json() : {};
       const booyahJson = booyahRes.ok ? await booyahRes.json() : {};
+      const creditsJson = creditsRes.ok ? await creditsRes.json() : {};
 
       setProfileData({
         subscriptionStatus: sub.subscriptionStatus ?? "FREE",
@@ -135,6 +139,8 @@ export default function DashboardPage() {
         highlighted: analysesJson.highlighted ?? [],
         dailyUsed: analysesJson.dailyUsed ?? 0,
         dailyLimit: analysesJson.dailyLimit ?? DAILY_PRO_LIMIT,
+        welcomeAnalysisCredits: creditsJson.data?.welcome_analysis_credits ?? 0,
+        welcomeBooyahCredits: creditsJson.data?.welcome_booyah_credits ?? 0,
         booyahVictories: booyahJson.victories ?? [],
         booyahStats: booyahJson.stats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 },
         booyahDailyUsed: booyahJson.dailyUsed ?? 0,
@@ -166,8 +172,11 @@ export default function DashboardPage() {
     }
 
     const currentStatus = profileData?.subscriptionStatus ?? "FREE";
-    if (currentStatus === "FREE") {
-      toast.error("Análise de IA requer o Plano PRO.", {
+    const availableWelcomeCredits = profileData?.welcomeAnalysisCredits ?? 0;
+    const userCanAnalyze = ["PRO", "SCOUT"].includes(currentStatus) || availableWelcomeCredits > 0;
+
+    if (!userCanAnalyze) {
+      toast.error("Seus créditos gratuitos acabaram. Assine o PRO para continuar.", {
         action: { label: "Assinar PRO", onClick: () => router.push("/subscription") },
       });
       return;
@@ -304,6 +313,8 @@ export default function DashboardPage() {
   const subscriptionStatus = profileData?.subscriptionStatus ?? "FREE";
   const isPro = ["PRO", "SCOUT"].includes(subscriptionStatus);
   const isScout = subscriptionStatus === "SCOUT";
+  const welcomeAnalysisCredits = profileData?.welcomeAnalysisCredits ?? 0;
+  const canUseAnalysis = isPro || welcomeAnalysisCredits > 0;
   const globalScore = profileData?.globalScore ?? 0;
   const dailyUsed = profileData?.dailyUsed ?? 0;
   const dailyLimit = profileData?.dailyLimit ?? DAILY_PRO_LIMIT;
@@ -398,8 +409,8 @@ export default function DashboardPage() {
 
         {/* ─── Overview Tab ─── */}
         <TabsContent value="overview" className="space-y-4 md:space-y-6">
-        <div className={!isPro ? "relative" : ""}>
-          {!isPro && (
+        <div className={!canUseAnalysis ? "relative" : ""}>
+          {!canUseAnalysis && (
             <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
               <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
                 <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
@@ -416,7 +427,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          <div className={!isPro ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
+          <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
 
           <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
@@ -518,10 +529,18 @@ export default function DashboardPage() {
                 Faça upload de um vídeo de até 3 minutos para um raio-x completo da sua performance.
               </p>
               {!isScout && (
-                <p className={`text-xs mb-4 font-medium ${dailyRemaining === 0 ? "text-red-400" : "text-muted-foreground/70"}`}>
-                  {dailyRemaining === 0
-                    ? "Limite diário atingido — compre créditos para continuar"
-                    : `${dailyRemaining} análise${dailyRemaining !== 1 ? "s" : ""} restante${dailyRemaining !== 1 ? "s" : ""} hoje`}
+                <p className={`text-xs mb-4 font-medium ${
+                  (!isPro && welcomeAnalysisCredits === 0) || (isPro && dailyRemaining === 0)
+                    ? "text-red-400"
+                    : "text-muted-foreground/70"
+                }`}>
+                  {isPro
+                    ? dailyRemaining === 0
+                      ? "Limite diário atingido — compre créditos para continuar"
+                      : `${dailyRemaining} análise${dailyRemaining !== 1 ? "s" : ""} restante${dailyRemaining !== 1 ? "s" : ""} hoje`
+                    : welcomeAnalysisCredits === 0
+                    ? "Créditos gratuitos esgotados"
+                    : `${welcomeAnalysisCredits} crédito${welcomeAnalysisCredits !== 1 ? "s" : ""} gratuito${welcomeAnalysisCredits !== 1 ? "s" : ""} disponível${welcomeAnalysisCredits !== 1 ? "is" : ""}`}
                 </p>
               )}
               <input
@@ -531,12 +550,12 @@ export default function DashboardPage() {
                 onChange={handleFileUpload}
                 className="hidden"
                 id="video-upload"
-                disabled={uploading || analyzing || (!isScout && dailyRemaining === 0)}
+                disabled={uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))}
               />
               <label
                 htmlFor="video-upload"
                 className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${
-                  uploading || analyzing || (!isScout && dailyRemaining === 0)
+                  uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))
                     ? "bg-muted text-muted-foreground cursor-not-allowed"
                     : "bg-primary text-primary-foreground hover:bg-primary/90"
                 }`}
@@ -552,8 +571,8 @@ export default function DashboardPage() {
 
         {/* ─── Gallery Tab ─── */}
         <TabsContent value="gallery" className="space-y-4 md:space-y-6">
-        <div className={!isPro ? "relative" : ""}>
-          {!isPro && (
+        <div className={!canUseAnalysis ? "relative" : ""}>
+          {!canUseAnalysis && (
             <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
               <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
                 <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
@@ -570,7 +589,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          <div className={!isPro ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
+          <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Minhas Gameplays</h2>
@@ -676,8 +695,8 @@ export default function DashboardPage() {
 
         {/* ─── Evolution Tab ─── */}
         <TabsContent value="history">
-        <div className={!isPro ? "relative" : ""}>
-          {!isPro && (
+        <div className={!canUseAnalysis ? "relative" : ""}>
+          {!canUseAnalysis && (
             <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
               <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
                 <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
@@ -694,7 +713,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          <div className={!isPro ? "blur-sm pointer-events-none select-none" : ""}>
+          <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none" : ""}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -751,6 +770,8 @@ export default function DashboardPage() {
             stats={profileData?.booyahStats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 }}
             dailyUsed={profileData?.booyahDailyUsed ?? 0}
             dailyLimit={profileData?.booyahDailyLimit ?? 3}
+            subscriptionStatus={subscriptionStatus}
+            welcomeBooyahCredits={profileData?.welcomeBooyahCredits ?? 0}
             onVictoryRecorded={fetchProfile}
           />
         </TabsContent>
