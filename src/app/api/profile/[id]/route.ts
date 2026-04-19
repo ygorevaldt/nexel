@@ -111,6 +111,11 @@ export async function GET(
         ? await isFavorited(viewerId, String(profile._id))
         : false;
 
+    const hasAnyContact = !!(
+      profile.contact_info?.discord ||
+      profile.contact_info?.whatsapp
+    );
+
     // Base data (always returned)
     const baseData = {
       id: String(profile._id),
@@ -123,6 +128,7 @@ export async function GET(
       is_own_profile: isOwnProfile,
       favorites_count: profile.favorites_count ?? 0,
       is_favorited: viewerHasFavorited,
+      has_any_contact: hasAnyContact,
     };
 
     // Partial response for FREE viewing other profiles

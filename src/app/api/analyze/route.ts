@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { auth } from "@/lib/auth";
-import { findUserById } from "@/repositories/UserRepository";
+import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserRepository";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
 import {
   countTodayAnalyses,
@@ -116,8 +116,9 @@ export async function POST(req: NextRequest) {
     }
 
     const subscriptionStatus = user.subscriptionStatus ?? "FREE";
+    const welcomeAnalysisCredits = user.welcome_analysis_credits ?? 0;
 
-    if (subscriptionStatus === "FREE") {
+    if (subscriptionStatus === "FREE" && welcomeAnalysisCredits <= 0) {
       return NextResponse.json(
         { error: "Análise de IA requer o Plano PRO.", requiresUpgrade: true },
         { status: 403 }
@@ -241,6 +242,10 @@ export async function POST(req: NextRequest) {
     });
 
     await addAiScoreToHistory(profileId, analysisData.overall_potential_score);
+
+    if (subscriptionStatus === "FREE") {
+      await consumeWelcomeAnalysisCredit(session.user.id);
+    }
 
     return NextResponse.json({
       success: true,
