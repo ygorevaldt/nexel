@@ -29,6 +29,11 @@ interface RankingEntry {
 }
 
 const RANKS = ["Todos", "Bronze", "Silver", "Gold", "Diamond", "Heroico", "Grão-Mestre"];
+const SORT_OPTIONS = [
+  { value: "global_score", label: "Score Global" },
+  { value: "wins", label: "Vitórias" },
+  { value: "headshot_rate", label: "Taxa de Headshot" },
+];
 
 const POSITION_STYLES: Record<number, string> = {
   1: "text-yellow-400 font-black text-xl",
@@ -51,7 +56,7 @@ export default function RankingPage() {
   const [entries, setEntries] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [rank, setRank] = useState("Todos");
-  const [sortBy, setSortBy] = useState("global_score");
+  const [sortBy, setSortBy] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
@@ -71,7 +76,7 @@ export default function RankingPage() {
     try {
       const params = new URLSearchParams();
       if (rank && rank !== "Todos") params.set("rank", rank);
-      params.set("sortBy", sortBy);
+      params.set("sortBy", sortBy || "global_score");
       params.set("limit", "30");
       if (favoritesOnly) params.set("favoritesOnly", "true");
 
@@ -158,7 +163,7 @@ export default function RankingPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3 flex-wrap justify-end">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
           <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")}>
             <SelectTrigger className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
               <SelectValue placeholder="Rank" />
@@ -168,14 +173,16 @@ export default function RankingPage() {
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "")}>
             <SelectTrigger className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
-              <SelectValue placeholder="Ordenar" />
+              <span className={sortBy ? "" : "text-muted-foreground"}>
+                {sortBy ? (SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy) : "Selecione"}
+              </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="global_score">Score Global</SelectItem>
-              <SelectItem value="wins">Vitórias</SelectItem>
-              <SelectItem value="headshot_rate">Headshot Rate</SelectItem>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

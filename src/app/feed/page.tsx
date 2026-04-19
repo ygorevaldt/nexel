@@ -54,7 +54,7 @@ export default function FeedPage() {
   const [search, setSearch] = useState("");
   const [rank, setRank] = useState("Todos");
   const [minScore, setMinScore] = useState("");
-  const [sortBy, setSortBy] = useState("global_score");
+  const [sortBy, setSortBy] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [profiles, setProfiles] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,7 +175,7 @@ export default function FeedPage() {
       </div>
 
       {/* Filters Bar */}
-      <div className="flex flex-col md:flex-row gap-3 p-4 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm">
         {/* Search — available to all */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -223,9 +223,11 @@ export default function FeedPage() {
         {/* Sort By — SCOUT only */}
         <div className={`relative ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
           {!isScout && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "global_score")} disabled={!isScout}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "")} disabled={!isScout}>
             <SelectTrigger className="w-full md:w-44 h-10 rounded-lg bg-muted/50 border-border/50">
-              <SelectValue placeholder="Ordenar por" />
+              <span className={sortBy ? "" : "text-muted-foreground"}>
+                {sortBy ? (SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy) : "Selecione"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {SORT_OPTIONS.map((opt) => (
