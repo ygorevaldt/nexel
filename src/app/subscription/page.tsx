@@ -365,37 +365,39 @@ function SubscriptionContent() {
                     ))}
                   </ul>
 
-                  <button
-                    onClick={() => handlePlanButtonClick(plan)}
-                    disabled={isCurrentPlan || checkingOut !== null}
-                    className={`w-full h-11 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${planColors.button}`}
-                  >
-                    {isCurrentPlan ? (
-                      <>
-                        <CheckCircle className="h-4 w-4" /> Plano Ativo
-                      </>
-                    ) : checkingOut === plan.id ? (
-                      <>
-                        <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                        Redirecionando...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4" />
-                        {resolveAction(currentStatus, plan.id) === 'DOWNGRADE'
-                          ? `Fazer Downgrade para ${plan.name}`
-                          : plan.id === "SCOUT" && currentStatus === "PRO"
-                          ? "Fazer Upgrade para SCOUT"
-                          : `Assinar ${plan.name}`}
-                      </>
-                    )}
-                  </button>
+                  <div className="mt-auto space-y-2">
+                    <button
+                      onClick={() => handlePlanButtonClick(plan)}
+                      disabled={isCurrentPlan || checkingOut !== null}
+                      className={`w-full h-11 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${planColors.button}`}
+                    >
+                      {isCurrentPlan ? (
+                        <>
+                          <CheckCircle className="h-4 w-4" /> Plano Ativo
+                        </>
+                      ) : checkingOut === plan.id ? (
+                        <>
+                          <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                          Redirecionando...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4" />
+                          {resolveAction(currentStatus, plan.id) === 'DOWNGRADE'
+                            ? `Fazer Downgrade para ${plan.name}`
+                            : plan.id === "SCOUT" && currentStatus === "PRO"
+                            ? "Fazer Upgrade para SCOUT"
+                            : `Assinar ${plan.name}`}
+                        </>
+                      )}
+                    </button>
 
-                  {!data?.availablePlans.find((p) => p.id === plan.id)?.stripePriceId && (
-                    <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-wider">
-                      Pagamentos via Stripe — em breve
-                    </p>
-                  )}
+                    {!data?.availablePlans.find((p) => p.id === plan.id)?.stripePriceId && (
+                      <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-wider">
+                        Pagamentos via Stripe — em breve
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
