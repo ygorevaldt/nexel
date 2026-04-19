@@ -205,6 +205,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (subscriptionStatus === 'FREE' && !usingWelcomeCredit) {
+      return NextResponse.json(
+        { error: 'Seus créditos gratuitos de Booyah acabaram. Assine o PRO para continuar.', requiresUpgrade: true },
+        { status: 403 }
+      );
+    }
+
     const dailyLimit = BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE;
     const { dailyCount } = await getBooyahDailyState(profileId);
 

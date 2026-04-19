@@ -27,6 +27,8 @@ interface BooyahTabProps {
   stats: BooyahStats;
   dailyUsed: number;
   dailyLimit: number;
+  subscriptionStatus: string;
+  welcomeBooyahCredits: number;
   onVictoryRecorded: () => void;
 }
 
@@ -59,13 +61,15 @@ function getResultToast(result: string, message: string) {
   }
 }
 
-export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, onVictoryRecorded }: BooyahTabProps) {
+export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, subscriptionStatus, welcomeBooyahCredits, onVictoryRecorded }: BooyahTabProps) {
   const [analyzing, setAnalyzing] = useState(false);
   const [filterMonth, setFilterMonth] = useState<number | undefined>(undefined);
   const [filterYear, setFilterYear] = useState<number | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isFree = subscriptionStatus === 'FREE';
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
+  const canSubmit = !isFree || welcomeBooyahCredits > 0;
 
   const filteredVictories = victories.filter((v) => {
     const d = new Date(v.date);
@@ -109,6 +113,11 @@ export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, onVictoryRe
 
       if (res.status === 409) {
         toast.warning('Print duplicado', { description: json.message });
+        return;
+      }
+
+      if (res.status === 403) {
+        toast.error(json.error ?? 'Créditos esgotados. Assine o PRO para continuar.');
         return;
       }
 
@@ -160,8 +169,12 @@ export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, onVictoryRe
           <p className="text-sm text-muted-foreground mb-2 max-w-[16rem]">
             Envie um print da tela de resultados de uma partida ranqueada.
           </p>
-          <p className={`text-xs mb-4 font-medium ${dailyRemaining === 0 ? 'text-red-400' : 'text-muted-foreground/70'}`}>
-            {dailyRemaining === 0
+          <p className={`text-xs mb-4 font-medium ${!canSubmit || (!isFree && dailyRemaining === 0) ? 'text-red-400' : 'text-muted-foreground/70'}`}>
+            {isFree
+              ? welcomeBooyahCredits === 0
+                ? 'Créditos gratuitos esgotados'
+                : `${welcomeBooyahCredits} crédito${welcomeBooyahCredits !== 1 ? 's' : ''} gratuito${welcomeBooyahCredits !== 1 ? 's' : ''} disponível${welcomeBooyahCredits !== 1 ? 'is' : ''}`
+              : dailyRemaining === 0
               ? 'Limite diário atingido'
               : `${dailyUsed} de ${dailyLimit} envios hoje`}
           </p>
@@ -172,12 +185,12 @@ export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, onVictoryRe
             onChange={handleFileChange}
             className="hidden"
             id="booyah-upload"
-            disabled={analyzing || dailyRemaining === 0}
+            disabled={analyzing || !canSubmit || (!isFree && dailyRemaining === 0)}
           />
           <label
             htmlFor="booyah-upload"
             className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${
-              analyzing || dailyRemaining === 0
+              analyzing || !canSubmit || (!isFree && dailyRemaining === 0)
                 ? 'bg-muted text-muted-foreground cursor-not-allowed'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
@@ -185,7 +198,7 @@ export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, onVictoryRe
             <UploadCloud className="h-4 w-4 mr-2" />
             {analyzing ? 'Processando...' : 'Enviar Print'}
           </label>
-          {dailyRemaining === 0 && (
+          {!isFree && dailyRemaining === 0 && (
             <div className="flex items-center gap-1.5 mt-3 text-xs text-red-400">
               <AlertCircle className="h-3.5 w-3.5" />
               Limite recarrega à meia-noite (horário de Brasília)
