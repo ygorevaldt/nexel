@@ -1,4 +1,4 @@
-import { ExternalLink, Star } from "lucide-react";
+import { ExternalLink, Star, Lock } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -15,6 +15,7 @@ interface ProfileHeaderProps {
     is_own_profile: boolean;
     favorites_count?: number;
   };
+  scoreHidden?: boolean;
 }
 
 function getScoreColor(score: number) {
@@ -29,7 +30,7 @@ function getPlanBadgeClass(plan: string) {
   return "bg-muted/30 text-muted-foreground border-border/40";
 }
 
-export function ProfileHeader({ profile }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, scoreHidden = false }: ProfileHeaderProps) {
   const scoreColor = getScoreColor(profile.global_score);
   const planBadgeClass = getPlanBadgeClass(profile.plan);
   const initial = profile.nickname.charAt(0).toUpperCase();
@@ -37,7 +38,7 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-card/50 border border-border/50 p-5 md:p-8">
       {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-purple-500/5 pointer-events-none" />
 
       <div className="relative flex flex-col md:flex-row gap-6 items-start md:items-center">
         {/* Avatar + Info */}
@@ -133,24 +134,31 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
         </div>
 
         {/* Global Score */}
-        <div className="flex flex-col items-center p-5 rounded-2xl bg-muted/30 border border-border/50 min-w-[120px] text-center shrink-0">
+        <div className="flex flex-col items-center p-5 rounded-2xl bg-muted/30 border border-border/50 min-w-30 text-center shrink-0">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">
             AI Score
           </span>
-          <span className={`text-5xl font-black tabular-nums leading-none ${scoreColor}`}>
-            {profile.global_score > 0 ? profile.global_score : "—"}
-          </span>
-          <span className="text-xs text-muted-foreground mt-1">/100</span>
-
-          {/* Score delta */}
-          {profile.score_delta != null && profile.score_delta !== 0 && (
-            <span
-              className={`mt-2 text-xs font-bold ${
-                profile.score_delta > 0 ? "text-emerald-400" : "text-red-400"
-              }`}
-            >
-              {profile.score_delta > 0 ? `+${profile.score_delta}` : profile.score_delta}
-            </span>
+          {scoreHidden ? (
+            <div className="flex flex-col items-center gap-1 py-1">
+              <Lock className="h-6 w-6 text-muted-foreground/40" />
+              <span className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider">PRO</span>
+            </div>
+          ) : (
+            <>
+              <span className={`text-5xl font-black tabular-nums leading-none ${scoreColor}`}>
+                {profile.global_score > 0 ? profile.global_score : "—"}
+              </span>
+              <span className="text-xs text-muted-foreground mt-1">/100</span>
+              {profile.score_delta != null && profile.score_delta !== 0 && (
+                <span
+                  className={`mt-2 text-xs font-bold ${
+                    profile.score_delta > 0 ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {profile.score_delta > 0 ? `+${profile.score_delta}` : profile.score_delta}
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>

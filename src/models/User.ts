@@ -18,6 +18,9 @@ export interface IUser extends Document {
   subscriptionEndDate?: Date;
   /** Profile IDs this user has favorited */
   favorited_profile_ids: mongoose.Types.ObjectId[];
+  /** Welcome credits granted at registration — consumed before plan limits kick in */
+  welcome_analysis_credits: number;
+  welcome_booyah_credits: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +38,8 @@ const UserSchema: Schema<IUser> = new Schema(
     stripeSubscriptionId: { type: String },
     subscriptionEndDate: { type: Date },
     favorited_profile_ids: [{ type: Schema.Types.ObjectId, ref: 'Profile', default: [] }],
+    welcome_analysis_credits: { type: Number, default: 5, min: 0 },
+    welcome_booyah_credits: { type: Number, default: 10, min: 0 },
   },
   { timestamps: true }
 );

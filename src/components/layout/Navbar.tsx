@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -20,10 +20,24 @@ import {
   Moon,
   User,
   Settings,
+  Bell,
+  Gamepad2,
+  Coins,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  metadata?: {
+    play_request_id?: string;
+  };
+}
 
 export function Navbar() {
   const pathname = usePathname();
@@ -31,7 +45,13 @@ export function Navbar() {
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [respondedIds, setRespondedIds] = useState<Set<string>>(new Set());
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme, setTheme } = useTheme();
 
   const links = [
@@ -41,16 +61,76 @@ export function Navbar() {
     { href: "/subscription", label: "Planos", icon: Crown },
   ];
 
-  // Close user menu when clicking outside
+  const fetchNotifications = useCallback(async () => {
+    if (status !== "authenticated") return;
+    try {
+      const res = await fetch("/api/notifications");
+      if (!res.ok) return;
+      const json = await res.json();
+      setNotifications(json.data ?? []);
+      setUnreadCount(json.unread_count ?? 0);
+    } catch {
+      // silent
+    }
+  }, [status]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleOpenNotifications = async () => {
+    setNotifOpen((v) => !v);
+    if (!notifOpen && unreadCount > 0) {
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await fetch("/api/notifications/read", { method: "PATCH" });
+    }
+  };
+
+  const handleAcceptPlayRequest = async (notifId: string, playRequestId: string) => {
+    setRespondingId(notifId);
+    try {
+      for (const type of ["whatsapp", "discord"] as const) {
+        const res = await fetch(`/api/play-request/${playRequestId}/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ response_type: type }),
+        });
+
+        if (res.ok || res.status === 409) {
+          setRespondedIds((prev) => new Set(prev).add(notifId));
+          return;
+        }
+
+        const json = await res.json();
+        // 400 means this contact type is missing — try the next one
+        if (res.status !== 400) {
+          console.error("[handleAcceptPlayRequest]", json.error);
+          return;
+        }
+      }
+
+      // Both contact types missing — redirect to settings
+      setNotifOpen(false);
+      router.push("/settings");
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   const userInitial = session?.user?.name?.charAt(0)?.toUpperCase() || "?";
   const isLoading = status === "loading";
@@ -108,6 +188,86 @@ export function Navbar() {
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
+          {/* Notification bell — shown only when authenticated */}
+          {session && (
+            <div className="relative" ref={notifRef}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 rounded-full relative"
+                onClick={handleOpenNotifications}
+                aria-label="Notificações"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-primary text-[9px] font-bold flex items-center justify-center text-primary-foreground">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Button>
+
+              {notifOpen && (
+                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-border bg-background shadow-xl shadow-black/20 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border/50">
+                    <p className="text-sm font-semibold">Notificações</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-muted-foreground">
+                        <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                        <p>Nenhuma notificação</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => {
+                        const isReceived = n.type === "PLAY_REQUEST_RECEIVED";
+                        const playRequestId = n.metadata?.play_request_id;
+                        const isResponded = respondedIds.has(n.id);
+                        const isResponding = respondingId === n.id;
+
+                        return (
+                          <div
+                            key={n.id}
+                            className={`px-4 py-3 border-b border-border/30 last:border-0 ${!n.read ? "bg-primary/5" : ""}`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className={`mt-0.5 shrink-0 h-6 w-6 rounded-full flex items-center justify-center ${isReceived ? "bg-primary/20" : "bg-emerald-500/20"}`}>
+                                <Gamepad2 className={`h-3 w-3 ${isReceived ? "text-primary" : "text-emerald-400"}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-foreground leading-relaxed">{n.message}</p>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  {new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(n.createdAt))}
+                                </p>
+                                {isReceived && playRequestId && (
+                                  <div className="mt-2">
+                                    {isResponded ? (
+                                      <span className="text-[10px] font-semibold text-emerald-400">
+                                        ✓ Aceito — contato enviado!
+                                      </span>
+                                    ) : (
+                                      <button
+                                        disabled={isResponding}
+                                        onClick={() => handleAcceptPlayRequest(n.id, playRequestId)}
+                                        className="text-[11px] font-semibold px-3 py-1 rounded-full bg-primary/15 text-primary hover:bg-primary/25 transition-colors disabled:opacity-50"
+                                      >
+                                        {isResponding ? "Enviando..." : "Aceitar convite"}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {!n.read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-1 py-1 pr-3 animate-pulse">
               <div className="h-8 w-8 rounded-full bg-primary/20" />
@@ -152,6 +312,14 @@ export function Navbar() {
                     >
                       <User className="h-4 w-4" />
                       Meu Perfil
+                    </Link>
+                    <Link
+                      href="/credits"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <Coins className="h-4 w-4" />
+                      Meus Créditos
                     </Link>
                     <Link
                       href="/settings"

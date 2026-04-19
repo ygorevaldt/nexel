@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 import { auth } from '@/lib/auth';
+import { findUserById, consumeWelcomeBooyahCredit } from '@/repositories/UserRepository';
 import { findProfileByUserId } from '@/repositories/ProfileRepository';
 import {
   getBooyahDailyState,
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     const profileId = String(profile._id);
 
-    // Duplicate detection — does NOT consume daily limit
+    // Duplicate detection — does NOT consume any credit
     const contentHash = createHash('sha256').update(base64Content).digest('hex');
     const isDuplicate = await isBooyahVictoryDuplicate(profileId, contentHash);
     if (isDuplicate) {
@@ -190,22 +191,37 @@ export async function POST(req: NextRequest) {
     }
 
     const subscriptionStatus = (session.user.subscriptionStatus ?? 'FREE') as keyof typeof BOOYAH_LIMITS;
-    const dailyLimit = BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE;
 
-    const { dailyCount } = await getBooyahDailyState(profileId);
-    if (dailyCount >= dailyLimit) {
-      return NextResponse.json(
-        {
-          error: `Limite diário de ${dailyLimit} Booyahs atingido.`,
-          dailyLimit,
-          used: dailyCount,
-        },
-        { status: 429 }
-      );
+    // Welcome credits bypass daily limits — consume atomically before analysis
+    let usingWelcomeCredit = false;
+    if (subscriptionStatus === 'FREE') {
+      const user = await findUserById(session.user.id);
+      const welcomeCredits = user?.welcome_booyah_credits ?? 0;
+      if (welcomeCredits > 0) {
+        const consumed = await consumeWelcomeBooyahCredit(session.user.id);
+        if (consumed) {
+          usingWelcomeCredit = true;
+        }
+      }
     }
 
-    // Consume daily slot before analysis (counts regardless of outcome)
-    await incrementBooyahDailyCount(profileId);
+    const dailyLimit = BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE;
+    const { dailyCount } = await getBooyahDailyState(profileId);
+
+    if (!usingWelcomeCredit) {
+      if (dailyCount >= dailyLimit) {
+        return NextResponse.json(
+          {
+            error: `Limite diário de ${dailyLimit} Booyahs atingido.`,
+            dailyLimit,
+            used: dailyCount,
+          },
+          { status: 429 }
+        );
+      }
+      // Consume daily slot before analysis (counts regardless of outcome)
+      await incrementBooyahDailyCount(profileId);
+    }
 
     const imagePart = {
       inlineData: {
@@ -239,12 +255,14 @@ export async function POST(req: NextRequest) {
       fraud_reason: string;
     };
 
+    const usedAfter = usingWelcomeCredit ? dailyCount : dailyCount + 1;
+
     if (result.confidence < CONFIDENCE_THRESHOLD) {
       return NextResponse.json({
         success: false,
         result: 'low_confidence',
         message: 'Não foi possível analisar o print com confiança suficiente. Envie uma imagem mais nítida.',
-        dailyUsed: dailyCount + 1,
+        dailyUsed: usedAfter,
         dailyLimit,
       }, { status: 422 });
     }
@@ -254,7 +272,7 @@ export async function POST(req: NextRequest) {
         success: false,
         result: 'invalid_print',
         message: 'O print enviado não parece ser uma tela de resultados do Free Fire.',
-        dailyUsed: dailyCount + 1,
+        dailyUsed: usedAfter,
         dailyLimit,
       }, { status: 422 });
     }
@@ -264,7 +282,7 @@ export async function POST(req: NextRequest) {
         success: false,
         result: 'fraud',
         message: `Print rejeitado: sinais de manipulação detectados. ${result.fraud_reason}`.trim(),
-        dailyUsed: dailyCount + 1,
+        dailyUsed: usedAfter,
         dailyLimit,
       }, { status: 422 });
     }
@@ -274,7 +292,7 @@ export async function POST(req: NextRequest) {
         success: false,
         result: 'not_ranked',
         message: 'Apenas partidas ranqueadas são aceitas.',
-        dailyUsed: dailyCount + 1,
+        dailyUsed: usedAfter,
         dailyLimit,
       }, { status: 422 });
     }
@@ -284,7 +302,7 @@ export async function POST(req: NextRequest) {
         success: false,
         result: 'not_victory',
         message: 'O print não mostra uma vitória (BOOYAH). Apenas vitórias são registradas.',
-        dailyUsed: dailyCount + 1,
+        dailyUsed: usedAfter,
         dailyLimit,
       }, { status: 422 });
     }
@@ -307,7 +325,7 @@ export async function POST(req: NextRequest) {
         game_mode: gameMode,
         kills: result.kills ?? 0,
       },
-      dailyUsed: dailyCount + 1,
+      dailyUsed: usedAfter,
       dailyLimit,
     }, { status: 201 });
   } catch (error) {

@@ -322,25 +322,6 @@ export default function DashboardPage() {
     );
   }
 
-  // FREE users: show upgrade wall
-  if (!isPro) {
-    return (
-      <div className="container max-w-7xl mx-auto py-12 md:py-24 px-4 flex flex-col items-center justify-center text-center gap-5 md:gap-6">
-        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <Lock className="h-10 w-10 text-primary" />
-        </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Coach IA</h1>
-        <p className="text-muted-foreground max-w-md">
-          O Coach IA é exclusivo para assinantes <strong>PRO</strong>. Envie seus vídeos de gameplay
-          e receba análise detalhada de um Recrutador de Elite.
-        </p>
-        <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8" })}>
-          <Crown className="h-4 w-4 mr-2" /> Assinar Plano PRO
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-8">
 
@@ -377,8 +358,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Daily limit indicator (PRO only, not SCOUT) */}
-          {!isScout && (
+          {/* Daily limit indicator (PRO only) */}
+          {isPro && !isScout && (
             <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ${
               dailyRemaining === 0
                 ? "bg-red-500/10 border-red-500/30 text-red-400"
@@ -417,6 +398,25 @@ export default function DashboardPage() {
 
         {/* ─── Overview Tab ─── */}
         <TabsContent value="overview" className="space-y-4 md:space-y-6">
+        <div className={!isPro ? "relative" : ""}>
+          {!isPro && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+              <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                  <Lock className="h-7 w-7 text-primary" />
+                </div>
+                <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                  Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                </p>
+                <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                  <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                </Link>
+              </div>
+            </div>
+          )}
+          <div className={!isPro ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
 
           <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
@@ -546,10 +546,31 @@ export default function DashboardPage() {
               </label>
             </Card>
           </div>
+          </div>
+        </div>
         </TabsContent>
 
         {/* ─── Gallery Tab ─── */}
         <TabsContent value="gallery" className="space-y-4 md:space-y-6">
+        <div className={!isPro ? "relative" : ""}>
+          {!isPro && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+              <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                  <Lock className="h-7 w-7 text-primary" />
+                </div>
+                <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                  Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                </p>
+                <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                  <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                </Link>
+              </div>
+            </div>
+          )}
+          <div className={!isPro ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Minhas Gameplays</h2>
@@ -649,21 +670,31 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-
-        {/* ─── Booyah Tab ─── */}
-        <TabsContent value="booyah">
-          <BooyahTab
-            victories={profileData?.booyahVictories ?? []}
-            stats={profileData?.booyahStats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 }}
-            dailyUsed={profileData?.booyahDailyUsed ?? 0}
-            dailyLimit={profileData?.booyahDailyLimit ?? 3}
-            onVictoryRecorded={fetchProfile}
-          />
+          </div>
+        </div>
         </TabsContent>
 
         {/* ─── Evolution Tab ─── */}
         <TabsContent value="history">
+        <div className={!isPro ? "relative" : ""}>
+          {!isPro && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+              <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                  <Lock className="h-7 w-7 text-primary" />
+                </div>
+                <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                  Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                </p>
+                <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                  <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                </Link>
+              </div>
+            </div>
+          )}
+          <div className={!isPro ? "blur-sm pointer-events-none select-none" : ""}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -709,6 +740,19 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+          </div>
+        </div>
+        </TabsContent>
+
+        {/* ─── Booyah Tab — acessível para todos os planos ─── */}
+        <TabsContent value="booyah">
+          <BooyahTab
+            victories={profileData?.booyahVictories ?? []}
+            stats={profileData?.booyahStats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 }}
+            dailyUsed={profileData?.booyahDailyUsed ?? 0}
+            dailyLimit={profileData?.booyahDailyLimit ?? 3}
+            onVictoryRecorded={fetchProfile}
+          />
         </TabsContent>
       </Tabs>
     </div>

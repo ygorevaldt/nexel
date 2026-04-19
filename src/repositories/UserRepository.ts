@@ -119,6 +119,35 @@ export async function updateUserPassword(userId: string, passwordHash: string): 
  * Cancels a user's subscription, reverting them to the FREE tier.
  * Called from the customer.subscription.deleted Stripe webhook event.
  */
+export async function getWelcomeCredits(userId: string): Promise<{ analysis: number; booyah: number }> {
+  await dbConnect();
+  const user = await User.findById(userId).select('welcome_analysis_credits welcome_booyah_credits').lean();
+  return {
+    analysis: user?.welcome_analysis_credits ?? 0,
+    booyah: user?.welcome_booyah_credits ?? 0,
+  };
+}
+
+export async function consumeWelcomeAnalysisCredit(userId: string): Promise<boolean> {
+  await dbConnect();
+  const result = await User.findOneAndUpdate(
+    { _id: userId, welcome_analysis_credits: { $gt: 0 } },
+    { $inc: { welcome_analysis_credits: -1 } },
+    { new: false }
+  ).lean();
+  return result !== null;
+}
+
+export async function consumeWelcomeBooyahCredit(userId: string): Promise<boolean> {
+  await dbConnect();
+  const result = await User.findOneAndUpdate(
+    { _id: userId, welcome_booyah_credits: { $gt: 0 } },
+    { $inc: { welcome_booyah_credits: -1 } },
+    { new: false }
+  ).lean();
+  return result !== null;
+}
+
 export async function cancelSubscription(userId: string): Promise<IUser | null> {
   await dbConnect();
   return User.findByIdAndUpdate(

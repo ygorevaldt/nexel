@@ -4,13 +4,24 @@ import { auth } from '@/lib/auth';
 import { updateProfileSettings } from '@/repositories/ProfileRepository';
 import { updateUserName } from '@/repositories/UserRepository';
 
+const WHATSAPP_REGEX = /^\(\d{2}\) \d{5}-\d{4}$/;
+const DISCORD_REGEX = /^[a-zA-Z0-9._]{2,32}(#\d{4})?$/;
+
 const UpdateProfileSchema = z.object({
   nickname: z.string().min(2).max(50).optional(),
   contact_info: z
     .object({
-      discord: z.string().max(100).optional(),
-      whatsapp: z.string().max(20).optional(),
-      email: z.string().email().max(100).optional(),
+      discord: z
+        .string()
+        .max(32)
+        .refine((v) => !v || DISCORD_REGEX.test(v), 'Formato de Discord inválido')
+        .optional(),
+      whatsapp: z
+        .string()
+        .max(15)
+        .refine((v) => !v || WHATSAPP_REGEX.test(v), 'Formato de WhatsApp inválido')
+        .optional(),
+      email: z.string().email().max(100).optional().or(z.literal('')),
       instagram: z.string().max(60).optional(),
     })
     .optional(),

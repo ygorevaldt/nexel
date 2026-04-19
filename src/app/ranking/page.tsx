@@ -42,6 +42,8 @@ const POSITION_ICONS: Record<number, React.ElementType> = {
   3: Award,
 };
 
+const FREE_VISIBLE_ROWS = 3;
+
 export default function RankingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -65,7 +67,6 @@ export default function RankingPage() {
   }, [status, router]);
 
   const fetchRanking = useCallback(async () => {
-    if (!canAccess) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -82,7 +83,7 @@ export default function RankingPage() {
     } finally {
       setLoading(false);
     }
-  }, [rank, sortBy, canAccess, favoritesOnly]);
+  }, [rank, sortBy, favoritesOnly]);
 
   useEffect(() => {
     fetchRanking();
@@ -134,24 +135,6 @@ export default function RankingPage() {
   }
 
   if (status === "unauthenticated") return null;
-
-  if (!canAccess) {
-    return (
-      <div className="container max-w-7xl mx-auto py-12 md:py-24 px-4 flex flex-col items-center justify-center text-center gap-5 md:gap-6">
-        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <Lock className="h-10 w-10 text-primary" />
-        </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Ranking Global</h1>
-        <p className="text-muted-foreground max-w-md">
-          O Ranking Global é exclusivo para assinantes <strong>PRO</strong> e <strong>SCOUT/Time</strong>.
-          Assine para competir e ver sua posição no leaderboard.
-        </p>
-        <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8" })}>
-          <Crown className="h-4 w-4 mr-2" /> Assinar PRO
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-8">
@@ -213,7 +196,7 @@ export default function RankingPage() {
         <div className="grid grid-cols-3 gap-2 md:gap-4 mb-2">
           {[entries[1], entries[0], entries[2]].map((entry, pIdx) => {
             const realPos = pIdx === 0 ? 2 : pIdx === 1 ? 1 : 3;
-            const heights = ["h-24", "h-32", "h-20"];
+            const heights = ["h-24", "h-32", "h-24"];
             const Icon = POSITION_ICONS[realPos] ?? Trophy;
             return (
               <motion.div
@@ -269,8 +252,10 @@ export default function RankingPage() {
               )}
             </div>
           ) : (
-            <div className="divide-y divide-border/20">
-              {entries.map((entry, idx) => {
+            <div>
+              {/* Visible rows — always shown */}
+              <div className="divide-y divide-border/20">
+              {entries.slice(0, !canAccess ? FREE_VISIBLE_ROWS : entries.length).map((entry, idx) => {
                 const Icon = POSITION_ICONS[entry.position];
                 const posStyle = POSITION_STYLES[entry.position] ?? "text-muted-foreground font-bold";
 
@@ -357,6 +342,67 @@ export default function RankingPage() {
                   </motion.div>
                 );
               })}
+              </div>
+
+              {/* Blurred rows + centered CTA — FREE users only */}
+              {!canAccess && entries.length > FREE_VISIBLE_ROWS && (
+                <div className="relative">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                    <div className="pointer-events-auto flex flex-col sm:flex-row items-center gap-4 bg-background/80 backdrop-blur-sm border border-border/50 rounded-2xl px-6 py-4 shadow-xl shadow-black/20 mx-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                          <Lock className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-bold">Veja sua posição no ranking</p>
+                          <p className="text-xs text-muted-foreground">Assine o PRO para competir e ver o leaderboard completo</p>
+                        </div>
+                      </div>
+                      <Link href="/subscription" className={buttonVariants({ className: "rounded-full shrink-0" })}>
+                        <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-border/20 blur-sm select-none pointer-events-none">
+                    {entries.slice(FREE_VISIBLE_ROWS).map((entry, idx) => {
+                      const Icon = POSITION_ICONS[entry.position];
+                      const posStyle = POSITION_STYLES[entry.position] ?? "text-muted-foreground font-bold";
+                      return (
+                        <div key={entry.id} className="flex items-center gap-3 px-4 py-3">
+                          <div className={`w-8 text-center shrink-0 ${posStyle}`}>
+                            {Icon ? <Icon className="h-5 w-5 mx-auto" /> : entry.position}
+                          </div>
+                          <Avatar className="h-9 w-9 shrink-0">
+                            <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                              {entry.nickname.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm truncate">{entry.nickname}</p>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[9px] uppercase font-bold h-4">{entry.rank}</Badge>
+                              <span className="text-[10px] text-muted-foreground">{entry.wins}V • {entry.matches}P</span>
+                            </div>
+                          </div>
+                          <div className="text-center hidden sm:block">
+                            <div className="text-[10px] text-muted-foreground uppercase">AI Score</div>
+                            <div className="font-bold text-sm">{entry.aiScore > 0 ? entry.aiScore : "—"}</div>
+                          </div>
+                          <div className="text-center hidden md:block">
+                            <div className="text-[10px] text-muted-foreground uppercase">Win %</div>
+                            <div className="font-bold text-sm">{entry.winRate}%</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[10px] text-muted-foreground uppercase">Score</div>
+                            <div className="font-black text-base text-primary">{entry.globalScore}</div>
+                          </div>
+                          <div className="w-9 h-7 shrink-0" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

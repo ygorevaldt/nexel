@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
-import { Trophy, TrendingUp, BrainCircuit, Swords, Medal, Film, MessageCircle } from "lucide-react";
+import { Trophy, TrendingUp, BrainCircuit, Swords, Medal, Film, MessageCircle, Gamepad2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileHeader } from "./_components/ProfileHeader";
+import { CopyGameIdButton } from "./_components/CopyGameIdButton";
+import { PlayRequestButton } from "./_components/PlayRequestButton";
 import { ScoreCards } from "./_components/ScoreCards";
 import { ScoreChart } from "./_components/ScoreChart";
 import { AnalysisList } from "./_components/AnalysisList";
@@ -93,12 +95,13 @@ interface ProfileData {
   is_own_profile: boolean;
   favorites_count: number;
   is_favorited: boolean;
+  has_any_contact: boolean;
 }
 
 type PartialProfileData = Pick<
   ProfileData,
   "id" | "nickname" | "game_id" | "rank" | "global_score" | "plan" | "viewer_permission" | "is_own_profile" | "favorites_count" | "is_favorited"
->;
+> & { has_any_contact?: boolean };
 
 export async function generateMetadata({
   params,
@@ -202,7 +205,27 @@ export default async function ProfilePage({
               is_own_profile: profileData.is_own_profile,
               favorites_count: profileData.favorites_count,
             }}
+            scoreHidden={!profileData.is_own_profile}
           />
+        </Section>
+        <Section delay={50}>
+          <Card className="bg-card/50 border-border/50">
+            <CardContent className="py-5 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Gamepad2 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Adicione este jogador no Free Fire:</p>
+                <p className="text-base font-bold mt-0.5">{profileData.game_id}</p>
+              </div>
+              <CopyGameIdButton gameId={profileData.game_id} />
+              <PlayRequestButton
+                profileId={profileData.id}
+                isOwnProfile={profileData.is_own_profile}
+                hasAnyContact={profileData.has_any_contact ?? false}
+              />
+            </CardContent>
+          </Card>
         </Section>
         <Section delay={100}>
           <UpgradeCTA />
@@ -232,6 +255,15 @@ export default async function ProfilePage({
             favorites_count: full.favorites_count,
           }}
         />
+        {!full.is_own_profile && (
+          <div className="mt-4 flex justify-end">
+            <PlayRequestButton
+              profileId={full.id}
+              isOwnProfile={full.is_own_profile}
+              hasAnyContact={full.has_any_contact ?? false}
+            />
+          </div>
+        )}
       </Section>
 
       {/* Score Cards */}
