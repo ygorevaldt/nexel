@@ -31,6 +31,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { BooyahTab } from "./_components/BooyahTab";
 
 const DAILY_PRO_LIMIT = 5;
+const MAX_VIDEO_SIZE_BYTES = 400 * 1024 * 1024;
 
 interface AnalysisEntry {
   id: string;
@@ -166,8 +167,8 @@ export default function DashboardPage() {
       return;
     }
 
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error("Vídeo muito grande. Máximo 100MB.");
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      toast.error("Vídeo muito grande. Máximo 400MB.");
       return;
     }
 
