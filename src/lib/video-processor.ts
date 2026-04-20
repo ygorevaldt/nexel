@@ -1,88 +1,96 @@
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-
-const ffmpeg = new FFmpeg();
+const MAX_FRAMES = 6;
+const FRAME_WIDTH = 960;
+const FRAME_SEEK_TIMEOUT_MS = 10_000;
 
 /**
- * Extracts frames from a video file at a specified interval (e.g., 1 frame every 5 seconds)
- * 
+ * Extracts frames from a video file using the browser's native video decoder.
+ * Avoids FFmpeg.wasm memory issues with large files by using HTMLVideoElement + Canvas.
+ *
  * @param file The video File object
- * @param intervalSeconds How often to extract a frame
- * @returns Array of object URLs for the extracted frames (images)
+ * @param intervalSeconds Minimum seconds between frames (used to calculate spread)
+ * @param onProgress Optional callback with human-readable status updates
+ * @returns Array of object URLs for the extracted JPEG frames
  */
-export async function extractFrames(file: File, intervalSeconds: number = 3): Promise<string[]> {
+export async function extractFrames(
+  file: File,
+  intervalSeconds: number = 3,
+  onProgress?: (message: string) => void
+): Promise<string[]> {
+  onProgress?.("Carregando vídeo...");
+
+  const video = document.createElement("video");
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+
+  const videoUrl = URL.createObjectURL(file);
+
   try {
-    if (!ffmpeg.loaded) {
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("Erro ao carregar metadados do vídeo"));
+      video.src = videoUrl;
+    });
+
+    const duration = video.duration;
+    if (!isFinite(duration) || duration <= 0) {
+      throw new Error("Não foi possível determinar a duração do vídeo");
     }
 
-    const inputName = 'input.mp4';
-    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    const frameCount = Math.min(
+      MAX_FRAMES,
+      Math.max(1, Math.floor(duration / intervalSeconds) + 1)
+    );
+    const spread = frameCount > 1 ? duration / (frameCount - 1) : 0;
 
-    // Get video duration using ffprobe or just reading it from browser
-    // As a simple workaround for the browser, we use a hidden video element
-    const duration = await getVideoDuration(file);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D não suportado neste browser");
+
+    const scale = FRAME_WIDTH / video.videoWidth;
+    canvas.width = FRAME_WIDTH;
+    canvas.height = Math.round(video.videoHeight * scale);
+
     const frameUrls: string[] = [];
-    
-    // Create output dir
-    await ffmpeg.createDir("out");
 
-    // Run ffmpeg to extract frames
-    // Optimization: Cap frames at ~12 to reduce tokens/cost while keeping enough context
-    const maxFrames = 12;
-    const calculatedInterval = Math.max(intervalSeconds, Math.floor(duration / (maxFrames - 1)));
-    
-    await ffmpeg.exec([
-      '-i', inputName,
-      '-vf', `fps=1/${calculatedInterval},scale=1280:-1`, // Also scale to 720p for cost/size balance
-      '-vsync', 'vfr',
-      'out/frame_%d.jpg'
-    ]);
+    for (let i = 0; i < frameCount; i++) {
+      const timestamp = i === frameCount - 1 ? duration - 0.1 : i * spread;
+      onProgress?.(`Extraindo frame ${i + 1} de ${frameCount}...`);
 
-    // Read the frames back
-    const fileCount = Math.min(maxFrames, Math.floor(duration / calculatedInterval) + 1);
-    
-    for (let i = 1; i <= fileCount; i++) {
-        try {
-            const data = await ffmpeg.readFile(`out/frame_${i}.jpg`);
-            const blobData = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
-            const blob = new Blob([blobData], { type: 'image/jpeg' });
-            frameUrls.push(URL.createObjectURL(blob));
-        } catch {
-             // Reached the end or file doesn't exist
-             break;
-        }
+      await seekTo(video, Math.max(0, timestamp));
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blobUrl = await new Promise<string>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error(`Falha ao gerar frame ${i + 1}`)); return; }
+            resolve(URL.createObjectURL(blob));
+          },
+          "image/jpeg",
+          0.85
+        );
+      });
+
+      frameUrls.push(blobUrl);
     }
-
-    // Cleanup
-    await ffmpeg.deleteFile(inputName);
-    // Cleanup generated frames from ffmpeg memfs
-    for (let i = 1; i <= frameUrls.length; i++) {
-        try { await ffmpeg.deleteFile(`out/frame_${i}.jpg`); } catch {}
-    }
-    try { await ffmpeg.deleteDir("out"); } catch {}
 
     return frameUrls;
-  } catch (error) {
-    console.error("Error extracting frames:", error);
-    throw error;
+  } finally {
+    URL.revokeObjectURL(videoUrl);
+    video.src = "";
   }
 }
 
-// Helper to get duration using browser API to avoid complex ffprobe parsing
-const getVideoDuration = (file: File): Promise<number> => {
+function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      window.URL.revokeObjectURL(video.src);
-      resolve(video.duration);
+    const timeout = setTimeout(
+      () => reject(new Error("Timeout ao capturar frame do vídeo")),
+      FRAME_SEEK_TIMEOUT_MS
+    );
+    video.onseeked = () => {
+      clearTimeout(timeout);
+      resolve();
     };
-    video.onerror = () => reject('Error loading video metadata');
-    video.src = URL.createObjectURL(file);
+    video.currentTime = time;
   });
-};
+}

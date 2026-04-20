@@ -96,6 +96,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -198,11 +199,11 @@ export default function DashboardPage() {
     }
 
     setUploading(true);
-    toast.info("Extraindo frames do vídeo...");
+    setStatusMessage("Iniciando processamento...");
 
     try {
       const { extractFrames } = await import("@/lib/video-processor");
-      const frameUrls = await extractFrames(file, 3);
+      const frameUrls = await extractFrames(file, 3, (msg) => setStatusMessage(msg));
 
       if (frameUrls.length === 0) {
         toast.error("Não foi possível extrair frames do vídeo.");
@@ -211,7 +212,7 @@ export default function DashboardPage() {
 
       setUploading(false);
       setAnalyzing(true);
-      toast.info(`${frameUrls.length} frames extraídos. Enviando para análise da IA...`);
+      setStatusMessage("Preparando frames para análise...");
 
       const framesBase64: string[] = await Promise.all(
         frameUrls.map(async (url) => {
@@ -227,6 +228,7 @@ export default function DashboardPage() {
 
       frameUrls.forEach((url) => URL.revokeObjectURL(url));
 
+      setStatusMessage("Enviando para o Scout IA...");
       const formData = new FormData();
       framesBase64.forEach((frame) => formData.append("frames", frame));
       formData.append(
@@ -234,6 +236,7 @@ export default function DashboardPage() {
         (session?.user as { profileId?: string })?.profileId ?? session?.user?.id ?? ""
       );
 
+      setStatusMessage("Scout analisando sua gameplay...");
       const res = await fetch("/api/analyze", { method: "POST", body: formData });
       const json = await res.json();
 
@@ -263,6 +266,7 @@ export default function DashboardPage() {
     } finally {
       setUploading(false);
       setAnalyzing(false);
+      setStatusMessage("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -524,8 +528,11 @@ export default function DashboardPage() {
                 )}
               </div>
               <h3 className="text-lg font-bold mb-2">
-                {analyzing ? "Analisando..." : uploading ? "Extraindo frames..." : "Nova Análise"}
+                {(uploading || analyzing) ? "Processando..." : "Nova Análise"}
               </h3>
+              {(uploading || analyzing) && statusMessage && (
+                <p className="text-xs text-primary/80 mb-2 animate-pulse">{statusMessage}</p>
+              )}
               <p className="text-sm text-muted-foreground mb-2 max-w-[16rem]">
                 Faça upload de um vídeo de até 3 minutos para um raio-x completo da sua performance.
               </p>

@@ -6,11 +6,11 @@ import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserR
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
 import {
   countTodayAnalyses,
-  findCachedContextForToday,
   findByContentHash,
   createAnalysis,
 } from "@/repositories/AiAnalysisRepository";
 import { addAiScoreToHistory } from "@/repositories/ProfileRepository";
+import { IAiAnalysisData } from "@/models/AiAnalysis";
 
 const DAILY_PRO_LIMIT = 5;
 
@@ -99,7 +99,9 @@ Regras do seu julgamento:
 Seja técnico, específico e direto. Este relatório pode mudar a carreira de alguém.
 `.trim();
 
-export const maxDuration = 60;
+// Vercel Pro allows up to 300s; Hobby plan caps at 60s.
+// With 6 frames at 960px, gemini-2.5-flash typically responds in 20-40s.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
@@ -173,10 +175,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ─── Context Caching: Cost Optimization ───────────────────────────────────
-    const cachedContextId = await findCachedContextForToday(profileId);
-    const cacheHit = cachedContextId !== null;
-
     // ─── Format frames as inline parts ───────────────────────────────────────
     const inlineDataParts = framesBase64.map((base64Str) => {
       const base64Content = base64Str.split(",")[1] || base64Str;
@@ -189,55 +187,42 @@ export async function POST(req: NextRequest) {
     });
 
     // ─── Invoke Gemini 2.5 Flash ──────────────────────────────────────────────
-    let response;
-
-    if (cacheHit && cachedContextId) {
-      response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [
-          "Analise estes novos frames de gameplay do mesmo jogador. Aplique os mesmos critérios rigorosos do scout de elite.",
-          ...inlineDataParts,
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: analysisSchema,
-          temperature: 0.2,
-        },
-      });
-    } else {
-      response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          ELITE_RECRUITER_PROMPT,
-          "Analise os seguintes frames de gameplay e forneça sua avaliação completa como Recrutador de Elite:",
-          ...inlineDataParts,
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: analysisSchema,
-          temperature: 0.2,
-        },
-      });
-    }
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        ELITE_RECRUITER_PROMPT,
+        "Analise os seguintes frames de gameplay e forneça sua avaliação completa como Recrutador de Elite:",
+        ...inlineDataParts,
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: analysisSchema,
+        temperature: 0.2,
+      },
+    });
 
     if (!response.text) {
       throw new Error("Gemini não retornou resposta");
     }
 
-    const analysisData = JSON.parse(response.text);
+    let analysisData: IAiAnalysisData;
+    try {
+      analysisData = JSON.parse(response.text) as IAiAnalysisData;
+    } catch {
+      throw new Error("Resposta do Gemini não é um JSON válido");
+    }
 
     // ─── Save Analysis & Update Profile Score ─────────────────────────────────
     const newAnalysis = await createAnalysis({
       profile_id: profileId,
       status: "COMPLETED",
       analysis_data: analysisData,
-      cached_context_id: cachedContextId ?? undefined,
       content_hash: contentHash,
       token_usage: {
         prompt_tokens: response.usageMetadata?.promptTokenCount ?? 0,
         completion_tokens: response.usageMetadata?.candidatesTokenCount ?? 0,
         total_tokens: response.usageMetadata?.totalTokenCount ?? 0,
-        cache_hit: cacheHit,
+        cache_hit: false,
       },
     });
 
@@ -252,7 +237,7 @@ export async function POST(req: NextRequest) {
       data: newAnalysis,
       cacheUsed: false,
       cost_optimization: {
-        cache_hit: cacheHit,
+        cache_hit: false,
         tokens_used: response.usageMetadata?.totalTokenCount ?? 0,
       },
     });

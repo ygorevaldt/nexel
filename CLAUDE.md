@@ -14,9 +14,9 @@ Jogadores enviam gameplays, recebem análise de IA, competem em desafios e const
 - **UI:** React 19, Tailwind CSS v4, Shadcn/UI, Framer Motion, Recharts
 - **Banco de dados:** MongoDB Atlas via Mongoose 9
 - **Autenticação:** NextAuth.js v5 (Auth.js) com JWT strategy
-- **IA:** Google Gemini via `@google/genai` — sempre `gemini-2.0-flash` salvo exceção explícita
+- **IA:** Google Gemini via `@google/genai` — sempre `gemini-2.5-flash` salvo exceção explícita
 - **Pagamentos:** Stripe (integração pendente de ativação)
-- **Processamento de vídeo:** FFmpeg.wasm (client-side, nunca server-side)
+- **Processamento de vídeo:** API nativa do browser (`HTMLVideoElement` + `Canvas`) — client-side, nunca server-side
 - **Validação:** Zod v4
 - **Linguagem:** TypeScript strict mode — `"strict": true` no tsconfig
 
@@ -52,7 +52,7 @@ src/
 │   ├── auth.config.ts        → NextAuth config edge-safe (sem mongoose/bcrypt)
 │   ├── db.ts                 → Singleton de conexão MongoDB
 │   ├── utils.ts              → cn() e utilitários gerais
-│   └── video-processor.ts    → FFmpeg.wasm helper
+│   └── video-processor.ts    → Extração de frames via API nativa do browser
 ├── models/                   → Schemas Mongoose
 │   ├── User.ts
 │   ├── Profile.ts
@@ -98,10 +98,10 @@ Leia `@.claude/rules/architecture.md` antes de criar ou modificar qualquer arqui
 
 3. **Gemini sempre com Structured Output.**
    Todo uso da API Gemini deve usar `responseMimeType: "application/json"` com schema explícito.
-   Nunca parsear texto livre. Sempre usar `gemini-2.0-flash` salvo justificativa documentada.
+   Nunca parsear texto livre. Sempre usar `gemini-2.5-flash` salvo justificativa documentada.
 
 4. **Imagens e vídeos nunca são armazenados no servidor.**
-   FFmpeg roda no browser. Frames e prints trafegam em memória como base64.
+   A extração de frames roda no browser via API nativa (`HTMLVideoElement` + `Canvas`). Frames e prints trafegam em memória como base64.
 
 5. **Autenticação via `auth()` de `@/lib/auth`.**
    Nunca acessar cookies ou headers de sessão diretamente nas rotas.

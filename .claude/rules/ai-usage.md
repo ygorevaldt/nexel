@@ -1,9 +1,9 @@
 # AI Usage — Nexel (Gemini)
 
-## Modelo padrão: `gemini-2.0-flash`
+## Modelo padrão: `gemini-2.5-flash`
 
-Sempre usar `gemini-2.0-flash` salvo justificativa explícita documentada no código.
-Nunca usar modelos Pro sem aprovação — o custo é 5-10x maior.
+Sempre usar `gemini-2.5-flash` salvo justificativa explícita documentada no código.
+Nunca usar modelos Pro (ex: gemini-2.5-pro) sem aprovação — o custo é 5-10x maior.
 
 ---
 
@@ -29,7 +29,7 @@ const schema: Schema = {
 };
 
 const response = await ai.models.generateContent({
-  model: 'gemini-2.0-flash',
+  model: 'gemini-2.5-flash',
   contents: [prompt, ...imageParts],
   config: {
     responseMimeType: 'application/json',
@@ -49,7 +49,7 @@ const data = JSON.parse(response.text); // pode quebrar em produção
 
 ## Imagens e Vídeos
 
-- **Vídeos:** FFmpeg.wasm extrai frames no browser. A API recebe apenas frames (base64).
+- **Vídeos:** A API nativa do browser (`HTMLVideoElement` + `Canvas`) extrai frames client-side. A API recebe apenas frames (base64).
 - **Prints/Screenshots:** recebidos como base64 direto do frontend.
 - **Nunca armazenar** imagens ou vídeos no servidor — processar em memória e descartar.
 
@@ -63,7 +63,7 @@ const imagePart = {
 };
 
 const response = await ai.models.generateContent({
-  model: 'gemini-2.0-flash',
+  model: 'gemini-2.5-flash',
   contents: [systemPrompt, imagePart],
   config: { ... },
 });
@@ -156,7 +156,7 @@ Você é um sistema especialista em análise forense de screenshots do Free Fire
 
 export async function POST(req: NextRequest) {
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: [BOOYAH_ANALYSIS_PROMPT, imagePart],
     config: { ... },
   });

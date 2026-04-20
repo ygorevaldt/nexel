@@ -12,7 +12,7 @@ O **Nexel** é uma plataforma SaaS alimentada por IA desenvolvida para profissio
 Jogadores criam um perfil focado em métricas competitivas, contendo histórico de desempenho, `Global Score` e highlights. A plataforma oferece um feed filtrável para que **Scouts (Olheiros)** identifiquem novos talentos baseados em dados reais, não apenas em clipes editados.
 
 ### 2. Coach IA (PRO)
-Através do processamento *client-side* com **FFmpeg WASM** e a tecnologia **Google Gemini 2.5 Flash**, os jogadores recebem uma análise técnica rigorosa de seus clipes. A IA avalia com precisão:
+Através do processamento *client-side* com a **API nativa do browser** e a tecnologia **Google Gemini 2.5 Flash**, os jogadores recebem uma análise técnica rigorosa de seus clipes. A IA avalia com precisão:
 *   **Movimentação:** Agilidade, uso de HUD e posicionamento em combate.
 *   **Uso de Gelo:** Velocidade de reação e eficiência das *Gloo Walls*.
 *   **Eficiência de Rotação:** Inteligência de mapa, timing de zona e tomada de decisão.
@@ -45,7 +45,7 @@ O projeto utiliza o **Next.js 16 App Router** com foco em performance e escalabi
 *   **Banco de Dados:** MongoDB Atlas com Mongoose ODM.
 *   **Autenticação:** NextAuth.js v5 (Auth.js) com MongoDB Adapter.
 *   **Inteligência Artificial:** Google Gemini 2.5 Flash (Structured Outputs & Context Caching).
-*   **Processamento de Vídeo:** FFmpeg.wasm (Execução no navegador do cliente).
+*   **Processamento de Vídeo:** API nativa do browser — `HTMLVideoElement` + `Canvas` (execução no navegador do cliente, sem dependências externas).
 
 ---
 
@@ -86,27 +86,30 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 O **Nexel** resolve o desafio de processar vídeos em infraestrutura serverless através de uma estratégia híbrida:
 
-1.  **Extração Local:** O FFmpeg.wasm extrai frames-chave no navegador do usuário.
-2.  **Payload Otimizado:** Apenas frames essenciais são enviados para a API, reduzindo drasticamente o consumo de banda e tokens.
+1.  **Extração Local:** A API nativa do browser (`HTMLVideoElement` + `Canvas`) extrai frames-chave diretamente no dispositivo do usuário — sem downloads de WASM, sem limite de memória, com suporte a vídeos de até 400MB.
+2.  **Payload Otimizado:** Apenas 6 frames em 960px são enviados para a API, reduzindo drasticamente o consumo de banda e tokens.
 3.  **Structured Output:** A API força um esquema JSON determinístico no Gemini, garantindo que o frontend receba dados prontos para exibição sem alucinações.
-4.  **Custo Reduzido:** Utiliza o sistema de Caching do Gemini para evitar re-processar prompts de sistema repetidos para o mesmo usuário no mesmo dia.
+4.  **Content Hash Cache:** Calcula SHA-256 dos frames antes de chamar o Gemini. Se o mesmo vídeo já foi analisado nos últimos 30 dias, retorna o resultado do banco de dados sem consumir tokens.
 
 ```mermaid
 sequenceDiagram
     participant Jogador (Browser)
-    participant FFmpeg (WASM)
     participant NextJS API
     participant Gemini (Google)
     participant MongoDB
     
-    Jogador (Browser)->>FFmpeg (WASM): Envia Clipe do Jogo (.mp4)
-    Note over FFmpeg (WASM): Extrai ~1 Frame / 4 seg
-    FFmpeg (WASM)-->>Jogador (Browser): Retorna Array de Frames
-    Jogador (Browser)->>NextJS API: POST /api/analyze (Frames + ProfileID)
-    NextJS API->>Gemini (Google): Prompt Técnico + Structured Schema + Frames
-    Gemini (Google)-->>NextJS API: Retorna JSON (Scores, Mentoria)
-    NextJS API->>MongoDB: Salva AiAnalysis + Atualiza Score do Perfil
-    NextJS API-->>Jogador (Browser): Resultado Pronto no Dashboard!
+    Jogador (Browser)->>Jogador (Browser): HTMLVideoElement + Canvas extraem 6 frames
+    Jogador (Browser)->>NextJS API: POST /api/analyze (Frames base64)
+    NextJS API->>MongoDB: Busca por Content Hash (SHA-256)
+    alt Cache Hit (mesmo vídeo nos últimos 30 dias)
+        MongoDB-->>NextJS API: Retorna análise cacheada
+        NextJS API-->>Jogador (Browser): Resultado instantâneo (sem custo de tokens)
+    else Cache Miss
+        NextJS API->>Gemini (Google): Prompt Técnico + Structured Schema + Frames
+        Gemini (Google)-->>NextJS API: Retorna JSON (Scores, Mentoria)
+        NextJS API->>MongoDB: Salva AiAnalysis + Atualiza Score do Perfil
+        NextJS API-->>Jogador (Browser): Resultado Pronto no Dashboard!
+    end
 ```
 
 ---
