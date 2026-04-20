@@ -61,7 +61,7 @@ export async function acceptChallenge(
   return Challenge.findByIdAndUpdate(
     challengeId,
     { opponent_id: opponentId, status: 'ACCEPTED' },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 }
 
@@ -74,7 +74,7 @@ export async function updateChallengeStatus(
   return Challenge.findByIdAndUpdate(
     challengeId,
     { status, ...extra },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 }
 

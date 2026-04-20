@@ -18,7 +18,7 @@ interface CreditsData {
 
 const PRO_BENEFITS = [
   "5 análises de gameplay por dia",
-  "Feedback do Recrutador de Elite",
+  "Feedback de Performance",
   "Histórico de evolução do score",
   "Perfil destacado no ranking",
 ];

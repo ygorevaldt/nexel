@@ -52,7 +52,7 @@ export const AVAILABLE_PLANS: Plan[] = [
     features: [
       'Análises de gameplay ilimitadas',
       'Histórico de evolução (AI Score)',
-      'Feedback do Recrutador de Elite',
+      'Feedback de Performance',
       'Perfil destacado no ranking',
     ],
   },
@@ -386,8 +386,8 @@ function SubscriptionContent() {
                           {resolveAction(currentStatus, plan.id) === 'DOWNGRADE'
                             ? `Fazer Downgrade para ${plan.name}`
                             : plan.id === "SCOUT" && currentStatus === "PRO"
-                            ? "Fazer Upgrade para SCOUT"
-                            : `Assinar ${plan.name}`}
+                              ? "Fazer Upgrade para SCOUT"
+                              : `Assinar ${plan.name}`}
                         </>
                       )}
                     </button>
@@ -440,8 +440,8 @@ function SubscriptionContent() {
                       <Badge
                         variant="outline"
                         className={`text-[9px] uppercase font-black ${tx.status === "COMPLETED"
-                            ? "text-emerald-400 border-emerald-400/20"
-                            : "text-amber-400 border-amber-400/20"
+                          ? "text-emerald-400 border-emerald-400/20"
+                          : "text-amber-400 border-amber-400/20"
                           }`}
                       >
                         {tx.status}

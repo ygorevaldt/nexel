@@ -63,7 +63,7 @@ export async function updateSubscription(
   }
 ): Promise<IUser | null> {
   await dbConnect();
-  return User.findByIdAndUpdate(userId, { $set: data }, { new: true }).lean();
+  return User.findByIdAndUpdate(userId, { $set: data }, { returnDocument: 'after' }).lean();
 }
 
 // ─── Favorites ───────────────────────────────────────────────────────────────
@@ -107,12 +107,12 @@ export async function removeFavorite(userId: string, profileId: string): Promise
 
 export async function updateUserName(userId: string, name: string): Promise<IUser | null> {
   await dbConnect();
-  return User.findByIdAndUpdate(userId, { $set: { name } }, { new: true }).lean();
+  return User.findByIdAndUpdate(userId, { $set: { name } }, { returnDocument: 'after' }).lean();
 }
 
 export async function updateUserPassword(userId: string, passwordHash: string): Promise<IUser | null> {
   await dbConnect();
-  return User.findByIdAndUpdate(userId, { $set: { passwordHash } }, { new: true }).lean();
+  return User.findByIdAndUpdate(userId, { $set: { passwordHash } }, { returnDocument: 'after' }).lean();
 }
 
 /**
@@ -133,7 +133,7 @@ export async function consumeWelcomeAnalysisCredit(userId: string): Promise<bool
   const result = await User.findOneAndUpdate(
     { _id: userId, welcome_analysis_credits: { $gt: 0 } },
     { $inc: { welcome_analysis_credits: -1 } },
-    { new: false }
+    { returnDocument: 'before' }
   ).lean();
   return result !== null;
 }
@@ -143,7 +143,7 @@ export async function consumeWelcomeBooyahCredit(userId: string): Promise<boolea
   const result = await User.findOneAndUpdate(
     { _id: userId, welcome_booyah_credits: { $gt: 0 } },
     { $inc: { welcome_booyah_credits: -1 } },
-    { new: false }
+    { returnDocument: 'before' }
   ).lean();
   return result !== null;
 }
@@ -156,6 +156,6 @@ export async function cancelSubscription(userId: string): Promise<IUser | null> 
       $set: { subscriptionStatus: 'FREE', role: 'FREE' },
       $unset: { stripeSubscriptionId: '', subscriptionEndDate: '' },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 }

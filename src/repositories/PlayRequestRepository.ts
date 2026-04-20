@@ -30,6 +30,6 @@ export async function respondToPlayRequest(
   return PlayRequest.findByIdAndUpdate(
     id,
     { $set: { status: 'RESPONDED', ...data } },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 }

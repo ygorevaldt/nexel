@@ -117,7 +117,7 @@ export async function updateProfileSettings(
   return Profile.findOneAndUpdate(
     { user_id: userId },
     { $set: data },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 }
 
@@ -129,7 +129,7 @@ export async function upsertProfile(
   const profile = await Profile.findOneAndUpdate(
     { user_id: userId },
     { $set: { user_id: userId, ...data } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
   return profile;
 }
@@ -154,7 +154,7 @@ export async function addAiScoreToHistory(
         },
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 }
 
@@ -169,7 +169,7 @@ export async function recordMatchResult(
   const inc: Record<string, number> = { 'metrics.matches_played': 1 };
   if (result === 'win') inc['metrics.wins'] = 1;
   else inc['metrics.losses'] = 1;
-  return Profile.findByIdAndUpdate(profileId, { $inc: inc }, { new: true }).lean();
+  return Profile.findByIdAndUpdate(profileId, { $inc: inc }, { returnDocument: 'after' }).lean();
 }
 /**
  * Toggles a specific analysis ID in the profile's highlights and enforces the MAX_HIGHLIGHTS limit.
