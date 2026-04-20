@@ -1,4 +1,4 @@
-const MAX_FRAMES = 6;
+const MAX_FRAMES = 60;
 const FRAME_WIDTH = 960;
 const FRAME_SEEK_TIMEOUT_MS = 10_000;
 
@@ -13,8 +13,8 @@ const FRAME_SEEK_TIMEOUT_MS = 10_000;
  */
 export async function extractFrames(
   file: File,
-  intervalSeconds: number = 3,
-  onProgress?: (message: string) => void
+  _intervalSeconds: number = 3,
+  onProgress?: (message: string) => void,
 ): Promise<string[]> {
   onProgress?.("Carregando vídeo...");
 
@@ -37,10 +37,8 @@ export async function extractFrames(
       throw new Error("Não foi possível determinar a duração do vídeo");
     }
 
-    const frameCount = Math.min(
-      MAX_FRAMES,
-      Math.max(1, Math.floor(duration / intervalSeconds) + 1)
-    );
+    // Distribute frames evenly across the video, capped at 1 per second for short clips
+    const frameCount = Math.min(MAX_FRAMES, Math.max(1, Math.floor(duration)));
     const spread = frameCount > 1 ? duration / (frameCount - 1) : 0;
 
     const canvas = document.createElement("canvas");
@@ -63,11 +61,14 @@ export async function extractFrames(
       const blobUrl = await new Promise<string>((resolve, reject) => {
         canvas.toBlob(
           (blob) => {
-            if (!blob) { reject(new Error(`Falha ao gerar frame ${i + 1}`)); return; }
+            if (!blob) {
+              reject(new Error(`Falha ao gerar frame ${i + 1}`));
+              return;
+            }
             resolve(URL.createObjectURL(blob));
           },
           "image/jpeg",
-          0.85
+          0.85,
         );
       });
 
@@ -83,10 +84,7 @@ export async function extractFrames(
 
 function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error("Timeout ao capturar frame do vídeo")),
-      FRAME_SEEK_TIMEOUT_MS
-    );
+    const timeout = setTimeout(() => reject(new Error("Timeout ao capturar frame do vídeo")), FRAME_SEEK_TIMEOUT_MS);
     video.onseeked = () => {
       clearTimeout(timeout);
       resolve();
