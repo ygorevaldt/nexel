@@ -36,7 +36,7 @@ const analysisSchema: Schema = {
     recruiter_feedback: {
       type: Type.STRING,
       description:
-        "2-3 paragraphs of narrative feedback written as an elite e-sports scout from FURIA, LOUD, or Fluxo. Be technical, direct, and brutally honest. Name specific mistakes with timestamps if visible.",
+        "2-3 paragraphs of narrative feedback written as an elite e-sports scout. Be technical, direct, and brutally honest. Name specific mistakes with timestamps if visible.",
     },
     strengths: {
       type: Type.ARRAY,
