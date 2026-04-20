@@ -79,7 +79,7 @@ const analysisSchema: Schema = {
 };
 
 const ELITE_RECRUITER_PROMPT = `
-Você é um Recrutador de Elite de e-sports com 10 anos de experiência selecionando jogadores para as maiores organizações do Brasil: FURIA, LOUD, LOS GRANDES e Fluxo.
+Você é um Recrutador de Elite de e-sports com 10 anos de experiência selecionando jogadores para as maiores organizações do Brasil.
 
 Sua missão é avaliar jogadores de Free Fire com a frieza e precisão de um scout profissional.
 Você viu MILHARES de jogadores. Você sabe distinguir potencial real de hype barato.
@@ -131,14 +131,33 @@ Você viu MILHARES de jogadores. Você sabe distinguir potencial real de hype ba
 3. Cite AÇÕES ESPECÍFICAS visíveis nos frames: "no frame X, o jogador fez Y, o que indica Z"
 4. Compare cada critério com o padrão PRO descrito acima — seja explícito sobre onde o jogador está abaixo do nível
 5. Identifique o perfil de função do jogador (Sniper, Rusher, Support) e avalie dentro desse contexto
-6. O "recruiter_feedback" deve soar como um relatório técnico enviado ao CEO da FURIA — sem elogios vazios, sem suavizar a realidade
+6. O "recruiter_feedback" deve soar como um relatório técnico — sem elogios vazios, sem suavizar a realidade e sem mencionar o nome do jogador.
 
 Seja técnico, específico e direto. Este relatório pode mudar a carreira de alguém.
 `.trim();
 
 // Vercel Pro allows up to 300s; Hobby plan caps at 60s.
-// With 6 frames at 960px, gemini-2.5-flash typically responds in 20-40s.
 export const maxDuration = 300;
+
+const GEMINI_MAX_RETRIES = 3;
+const GEMINI_RETRY_DELAY_MS = 3000;
+
+async function invokeGemini(
+  contents: Parameters<typeof ai.models.generateContent>[0]["contents"],
+  config: Parameters<typeof ai.models.generateContent>[0]["config"],
+): Promise<Awaited<ReturnType<typeof ai.models.generateContent>>> {
+  for (let attempt = 1; attempt <= GEMINI_MAX_RETRIES; attempt++) {
+    try {
+      return await ai.models.generateContent({ model: "gemini-3-flash-preview", contents, config });
+    } catch (err) {
+      const msg = (err as Error).message ?? "";
+      const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("529");
+      if (!isRetryable || attempt === GEMINI_MAX_RETRIES) throw err;
+      await new Promise((r) => setTimeout(r, GEMINI_RETRY_DELAY_MS * attempt));
+    }
+  }
+  throw new Error("Gemini: retries esgotados");
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -182,9 +201,30 @@ export async function POST(req: NextRequest) {
     const cachedAnalysis = await findByContentHash(contentHash);
 
     if (cachedAnalysis) {
+      // Cache hit: create a new analysis record for this profile reusing the cached data,
+      // then update score history and consume credit as normal — only Gemini is skipped.
+      const newAnalysis = await createAnalysis({
+        profile_id: profileId,
+        status: "COMPLETED",
+        analysis_data: cachedAnalysis.analysis_data,
+        content_hash: contentHash,
+        token_usage: {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          cache_hit: true,
+        },
+      });
+
+      await addAiScoreToHistory(profileId, cachedAnalysis.analysis_data!.overall_potential_score);
+
+      if (subscriptionStatus === "FREE") {
+        await consumeWelcomeAnalysisCredit(session.user.id);
+      }
+
       return NextResponse.json({
         success: true,
-        data: cachedAnalysis,
+        data: newAnalysis,
         cacheUsed: true,
         cost_optimization: {
           cache_hit: true,
@@ -221,19 +261,18 @@ export async function POST(req: NextRequest) {
     });
 
     // ─── Invoke Gemini 2.5 Flash ──────────────────────────────────────────────
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
+    const response = await invokeGemini(
+      [
         ELITE_RECRUITER_PROMPT,
         "Analise os seguintes frames de gameplay e forneça sua avaliação completa como Recrutador de Elite:",
         ...inlineDataParts,
       ],
-      config: {
+      {
         responseMimeType: "application/json",
         responseSchema: analysisSchema,
         temperature: 0.2,
       },
-    });
+    );
 
     if (!response.text) {
       throw new Error("Gemini não retornou resposta");
@@ -277,6 +316,13 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[POST /api/analyze]", error);
-    return NextResponse.json({ error: "Falha na análise de IA", details: (error as Error).message }, { status: 500 });
+    const message = (error as Error).message ?? "";
+    if (message.includes("503") || message.includes("UNAVAILABLE")) {
+      return NextResponse.json(
+        { error: "O avaliador de IA está sobrecarregado no momento. Tente novamente em alguns instantes." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ error: "Falha na análise de IA", details: message }, { status: 500 });
   }
 }
