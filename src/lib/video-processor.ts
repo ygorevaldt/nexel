@@ -1,5 +1,7 @@
-const MAX_FRAMES = 60;
-const FRAME_WIDTH = 960;
+// Vercel serverless payload limit is 4.5MB.
+// At 720px JPEG 0.75 each frame is ~65KB → 35 frames ≈ 2.3MB (safe headroom).
+const MAX_FRAMES = 35;
+const FRAME_WIDTH = 720;
 const FRAME_SEEK_TIMEOUT_MS = 10_000;
 
 /**
@@ -68,7 +70,7 @@ export async function extractFrames(
             resolve(URL.createObjectURL(blob));
           },
           "image/jpeg",
-          0.85,
+          0.75,
         );
       });
 
