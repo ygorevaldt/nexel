@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   Activity,
   UploadCloud,
+  Loader2,
   TrendingUp,
   Sparkles,
   Crown,
@@ -23,7 +24,19 @@ import {
   Video,
   AlertCircle,
   CreditCard,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  Zap,
+  TrendingDown,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -54,6 +67,11 @@ interface AnalysisEntry {
   gloo: number;
   rotation: number;
   playstyle: string;
+  recruiter_feedback: string;
+  strengths: string[];
+  areas_for_improvement: string[];
+  mistakes: string[];
+  highlights: string[];
   date: string;
   video_url: string | null;
   highlighted: boolean;
@@ -140,16 +158,16 @@ export default function DashboardPage() {
         })),
         latestAnalysis: analysesJson.analyses?.[0]
           ? {
-              overall_potential_score: analysesJson.analyses[0].score,
-              movement_score: analysesJson.analyses[0].movement,
-              gloo_wall_usage: analysesJson.analyses[0].gloo,
-              rotation_efficiency: analysesJson.analyses[0].rotation,
-              recruiter_feedback: "",
-              strengths: [],
-              areas_for_improvement: [],
-              highlights: [],
-              recommended_playstyle: analysesJson.analyses[0].playstyle,
-            }
+            overall_potential_score: analysesJson.analyses[0].score,
+            movement_score: analysesJson.analyses[0].movement,
+            gloo_wall_usage: analysesJson.analyses[0].gloo,
+            rotation_efficiency: analysesJson.analyses[0].rotation,
+            recruiter_feedback: analysesJson.analyses[0].recruiter_feedback ?? "",
+            strengths: analysesJson.analyses[0].strengths ?? [],
+            areas_for_improvement: analysesJson.analyses[0].areas_for_improvement ?? [],
+            highlights: analysesJson.analyses[0].highlights ?? [],
+            recommended_playstyle: analysesJson.analyses[0].playstyle,
+          }
           : null,
         analyses: analysesJson.analyses ?? [],
         highlighted: analysesJson.highlighted ?? [],
@@ -256,7 +274,7 @@ export default function DashboardPage() {
         (session?.user as { profileId?: string })?.profileId ?? session?.user?.id ?? ""
       );
 
-      setStatusMessage("Scout analisando sua gameplay...");
+      setStatusMessage("Nossa IA está analisando sua gameplay...");
       const res = await fetch("/api/analyze", { method: "POST", body: formData });
       const json = await res.json();
 
@@ -317,13 +335,13 @@ export default function DashboardPage() {
       setProfileData((prev) =>
         prev
           ? {
-              ...prev,
-              highlighted: json.highlightedIds,
-              analyses: prev.analyses.map((a) => ({
-                ...a,
-                highlighted: json.highlightedIds.includes(a.id),
-              })),
-            }
+            ...prev,
+            highlighted: json.highlightedIds,
+            analyses: prev.analyses.map((a) => ({
+              ...a,
+              highlighted: json.highlightedIds.includes(a.id),
+            })),
+          }
           : prev
       );
 
@@ -339,7 +357,8 @@ export default function DashboardPage() {
   const isPro = ["PRO", "SCOUT"].includes(subscriptionStatus);
   const isScout = subscriptionStatus === "SCOUT";
   const welcomeAnalysisCredits = profileData?.welcomeAnalysisCredits ?? 0;
-  const canUseAnalysis = isPro || welcomeAnalysisCredits > 0;
+  const hasAnalyses = (profileData?.analyses?.length ?? 0) > 0;
+  const canUseAnalysis = isPro || welcomeAnalysisCredits > 0 || hasAnalyses;
   const globalScore = profileData?.globalScore ?? 0;
   const dailyUsed = profileData?.dailyUsed ?? 0;
   const dailyLimit = profileData?.dailyLimit ?? DAILY_PRO_LIMIT;
@@ -396,13 +415,12 @@ export default function DashboardPage() {
 
           {/* Daily limit indicator (PRO only) */}
           {isPro && !isScout && (
-            <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ${
-              dailyRemaining === 0
-                ? "bg-red-500/10 border-red-500/30 text-red-400"
-                : dailyRemaining <= 2
+            <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ${dailyRemaining === 0
+              ? "bg-red-500/10 border-red-500/30 text-red-400"
+              : dailyRemaining <= 2
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                 : "bg-muted/30 border-border text-muted-foreground"
-            }`}>
+              }`}>
               {dailyRemaining === 0
                 ? <AlertCircle className="h-3.5 w-3.5" />
                 : <UploadCloud className="h-3.5 w-3.5" />}
@@ -434,361 +452,459 @@ export default function DashboardPage() {
 
         {/* ─── Overview Tab ─── */}
         <TabsContent value="overview" className="space-y-4 md:space-y-6">
-        <div className={!canUseAnalysis ? "relative" : ""}>
-          {!canUseAnalysis && (
-            <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
-              <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
-                <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-                  <Lock className="h-7 w-7 text-primary" />
-                </div>
-                <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
-                  Descubra seu score de movimentação, gelo, rotação e potencial geral.
-                </p>
-                <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
-                  <Crown className="h-4 w-4 mr-2" /> Assinar PRO
-                </Link>
-              </div>
-            </div>
-          )}
-          <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
-
-          <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: "Movimentação", icon: Activity, value: analysis?.movement_score },
-              { label: "Uso de Gelo", icon: ShieldAlert, value: analysis?.gloo_wall_usage },
-              { label: "Rotação", icon: Map, value: analysis?.rotation_efficiency },
-              { label: "Potencial Geral", icon: Crosshair, value: analysis?.overall_potential_score },
-            ].map(({ label, icon: Icon, value }) => (
-              <Card key={label} className="bg-card">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{label}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${value !== undefined ? (value >= 70 ? "text-emerald-400" : value >= 45 ? "text-amber-400" : "text-red-400") : "text-muted-foreground/30"}`}>
-                    {value !== undefined ? value : "—"}
+          <div className={!canUseAnalysis ? "relative" : ""}>
+            {!canUseAnalysis && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+                <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                  <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                    <Lock className="h-7 w-7 text-primary" />
                   </div>
-                  <div className="h-1.5 w-full mt-3 rounded-full bg-muted overflow-hidden">
-                    {value !== undefined && (
+                  <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                  </p>
+                  <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                    <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                  </Link>
+                </div>
+              </div>
+            )}
+            <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
+
+              <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { label: "Movimentação", icon: Activity, value: analysis?.movement_score },
+                  { label: "Uso de Gelo", icon: ShieldAlert, value: analysis?.gloo_wall_usage },
+                  { label: "Rotação", icon: Map, value: analysis?.rotation_efficiency },
+                  { label: "Potencial Geral", icon: Crosshair, value: analysis?.overall_potential_score },
+                ].map(({ label, icon: Icon, value }) => (
+                  <Card key={label} className="bg-card">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">{label}</CardTitle>
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className={`text-2xl font-bold ${value !== undefined ? (value >= 70 ? "text-emerald-400" : value >= 45 ? "text-amber-400" : "text-red-400") : "text-muted-foreground/30"}`}>
+                        {value !== undefined ? value : "—"}
+                      </div>
+                      <div className="h-1.5 w-full mt-3 rounded-full bg-muted overflow-hidden">
+                        {value !== undefined && (
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${value}%` }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                            className={`h-full rounded-full ${value >= 70 ? "bg-emerald-500" : value >= 45 ? "bg-amber-500" : "bg-red-500"}`}
+                          />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+                {/* Recruiter Feedback Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BrainCircuit className="h-5 w-5 text-primary" />
+                      Feedback de Performance
+                    </CardTitle>
+                    <CardDescription>
+                      {analysis ? "Análise do seu último clipe enviado" : "Baseado nas suas análises enviadas"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AnimatePresence mode="wait">
+                      {analysis?.recruiter_feedback ? (
+                        <motion.div
+                          key="feedback"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-4"
+                        >
+                          <p className="text-sm text-muted-foreground leading-relaxed italic">
+                            &quot;{analysis.recruiter_feedback.substring(0, 300)}...&quot;
+                          </p>
+                          {analysis.recommended_playstyle && (
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                              <span className="text-sm font-medium">
+                                Estilo recomendado: <span className="text-primary">{analysis.recommended_playstyle}</span>
+                              </span>
+                            </div>
+                          )}
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="empty"
+                          className="flex flex-col items-center justify-center py-8 text-center gap-3"
+                        >
+                          <BrainCircuit className="h-10 w-10 text-muted-foreground/20" />
+                          <p className="text-sm text-muted-foreground">
+                            Nenhuma análise realizada ainda.<br />Envie um clipe para receber Feedback da IA.
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </CardContent>
+                </Card>
+
+                {/* Upload Card */}
+                <Card className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 hover:border-primary/50 transition-colors">
+                  <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center text-primary mb-4">
+                    {uploading || analyzing ? (
                       <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${value}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-full rounded-full ${value >= 70 ? "bg-emerald-500" : value >= 45 ? "bg-amber-500" : "bg-red-500"}`}
-                      />
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Loader2 className="h-8 w-8" />
+                      </motion.div>
+                    ) : (
+                      <UploadCloud className="h-8 w-8" />
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-            {/* Recruiter Feedback Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BrainCircuit className="h-5 w-5 text-primary" />
-                  Feedback do Recrutador de Elite
-                </CardTitle>
-                <CardDescription>
-                  {analysis ? "Análise do seu último clipe enviado" : "Baseado nas suas análises enviadas"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AnimatePresence mode="wait">
-                  {analysis?.recruiter_feedback ? (
-                    <motion.div
-                      key="feedback"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-4"
-                    >
-                      <p className="text-sm text-muted-foreground leading-relaxed italic">
-                        &quot;{analysis.recruiter_feedback.substring(0, 300)}...&quot;
-                      </p>
-                      {analysis.recommended_playstyle && (
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                          <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                          <span className="text-sm font-medium">
-                            Estilo recomendado: <span className="text-primary">{analysis.recommended_playstyle}</span>
-                          </span>
-                        </div>
-                      )}
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="empty"
-                      className="flex flex-col items-center justify-center py-8 text-center gap-3"
-                    >
-                      <BrainCircuit className="h-10 w-10 text-muted-foreground/20" />
-                      <p className="text-sm text-muted-foreground">
-                        Nenhuma análise realizada ainda.<br />Envie um clipe para receber feedback do scout.
-                      </p>
-                    </motion.div>
+                  <h3 className="text-lg font-bold mb-2">
+                    {(uploading || analyzing) ? "Processando..." : "Nova Análise"}
+                  </h3>
+                  {(uploading || analyzing) && statusMessage && (
+                    <p className="text-xs text-primary/80 mb-2 animate-pulse">{statusMessage}</p>
                   )}
-                </AnimatePresence>
-              </CardContent>
-            </Card>
-
-            {/* Upload Card */}
-            <Card className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 hover:border-primary/50 transition-colors">
-              <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center text-primary mb-4">
-                {uploading || analyzing ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  <p className="text-sm text-muted-foreground mb-2 max-w-[16rem]">
+                    Faça upload de um vídeo de até 6 minutos para um raio-x completo da sua performance.
+                  </p>
+                  {!isScout && (
+                    <p className={`text-xs mb-4 font-medium ${(!isPro && welcomeAnalysisCredits === 0) || (isPro && dailyRemaining === 0)
+                      ? "text-red-400"
+                      : "text-muted-foreground/70"
+                      }`}>
+                      {isPro
+                        ? dailyRemaining === 0
+                          ? "Limite diário atingido — compre créditos para continuar"
+                          : `${dailyRemaining} análise${dailyRemaining !== 1 ? "s" : ""} restante${dailyRemaining !== 1 ? "s" : ""} hoje`
+                        : welcomeAnalysisCredits === 0
+                          ? "Créditos gratuitos esgotados"
+                          : `${welcomeAnalysisCredits} crédito${welcomeAnalysisCredits !== 1 ? "s" : ""} gratuito${welcomeAnalysisCredits !== 1 ? "s" : ""} disponível${welcomeAnalysisCredits !== 1 ? "is" : ""}`}
+                    </p>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="video-upload"
+                    disabled={uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))}
+                  />
+                  <label
+                    htmlFor="video-upload"
+                    className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                      }`}
                   >
-                    <BrainCircuit className="h-8 w-8" />
-                  </motion.div>
-                ) : (
-                  <UploadCloud className="h-8 w-8" />
-                )}
+                    <UploadCloud className="h-4 w-4 mr-2" />
+                    {uploading || analyzing ? "Processando..." : "Enviar Clipe"}
+                  </label>
+                </Card>
               </div>
-              <h3 className="text-lg font-bold mb-2">
-                {(uploading || analyzing) ? "Processando..." : "Nova Análise"}
-              </h3>
-              {(uploading || analyzing) && statusMessage && (
-                <p className="text-xs text-primary/80 mb-2 animate-pulse">{statusMessage}</p>
-              )}
-              <p className="text-sm text-muted-foreground mb-2 max-w-[16rem]">
-                Faça upload de um vídeo de até 6 minutos para um raio-x completo da sua performance.
-              </p>
-              {!isScout && (
-                <p className={`text-xs mb-4 font-medium ${
-                  (!isPro && welcomeAnalysisCredits === 0) || (isPro && dailyRemaining === 0)
-                    ? "text-red-400"
-                    : "text-muted-foreground/70"
-                }`}>
-                  {isPro
-                    ? dailyRemaining === 0
-                      ? "Limite diário atingido — compre créditos para continuar"
-                      : `${dailyRemaining} análise${dailyRemaining !== 1 ? "s" : ""} restante${dailyRemaining !== 1 ? "s" : ""} hoje`
-                    : welcomeAnalysisCredits === 0
-                    ? "Créditos gratuitos esgotados"
-                    : `${welcomeAnalysisCredits} crédito${welcomeAnalysisCredits !== 1 ? "s" : ""} gratuito${welcomeAnalysisCredits !== 1 ? "s" : ""} disponível${welcomeAnalysisCredits !== 1 ? "is" : ""}`}
-                </p>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="video-upload"
-                disabled={uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))}
-              />
-              <label
-                htmlFor="video-upload"
-                className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${
-                  uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90"
-                }`}
-              >
-                <UploadCloud className="h-4 w-4 mr-2" />
-                {uploading || analyzing ? "Processando..." : "Enviar Clipe"}
-              </label>
-            </Card>
+            </div>
           </div>
-          </div>
-        </div>
         </TabsContent>
 
         {/* ─── Gallery Tab ─── */}
         <TabsContent value="gallery" className="space-y-4 md:space-y-6">
-        <div className={!canUseAnalysis ? "relative" : ""}>
-          {!canUseAnalysis && (
-            <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
-              <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
-                <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-                  <Lock className="h-7 w-7 text-primary" />
+          <div className={!canUseAnalysis ? "relative" : ""}>
+            {!canUseAnalysis && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+                <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                  <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                    <Lock className="h-7 w-7 text-primary" />
+                  </div>
+                  <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                  </p>
+                  <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                    <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                  </Link>
                 </div>
-                <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
-                  Descubra seu score de movimentação, gelo, rotação e potencial geral.
-                </p>
-                <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
-                  <Crown className="h-4 w-4 mr-2" /> Assinar PRO
-                </Link>
               </div>
-            </div>
-          )}
-          <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Minhas Gameplays</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Você pode destacar até <strong>5 gameplays</strong> para que Scouts vejam em destaque no seu perfil.
-                <span className="ml-1 text-primary font-medium">
-                  ({profileData?.highlighted.length ?? 0}/5 destacadas)
-                </span>
-              </p>
-            </div>
-          </div>
+            )}
+            <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none space-y-4 md:space-y-6" : "space-y-4 md:space-y-6"}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Minhas Gameplays</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Você pode destacar até <strong>5 gameplays</strong> para que Scouts vejam em destaque no seu perfil.
+                    <span className="ml-1 text-primary font-medium">
+                      ({profileData?.highlighted.length ?? 0}/5 destacadas)
+                    </span>
+                  </p>
+                </div>
+              </div>
 
-          {(profileData?.analyses.length ?? 0) === 0 ? (
-            <div className="py-10 md:py-20 text-center">
-              <Video className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
-              <h3 className="text-xl font-bold text-muted-foreground">Nenhuma gameplay enviada ainda.</h3>
-              <p className="text-sm text-muted-foreground">Envie um clipe na aba Visão Geral para começar.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-              {profileData?.analyses.map((item, idx) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                >
-                  <Card className={`relative border transition-all ${
-                    item.highlighted
-                      ? "border-primary/60 shadow-lg shadow-primary/10 bg-primary/5"
-                      : "border-border/50 bg-card/40"
-                  }`}>
-                    {item.highlighted && (
-                      <div className="absolute top-2 left-2">
-                        <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
-                          <Star className="h-2.5 w-2.5 mr-1 fill-primary" /> Destaque
-                        </Badge>
-                      </div>
-                    )}
-                    <CardHeader className="pb-2 pt-8">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-base">
-                            Score:{" "}
-                            <span className={`${item.score >= 70 ? "text-emerald-400" : item.score >= 45 ? "text-amber-400" : "text-red-400"}`}>
-                              {item.score}/100
-                            </span>
-                          </CardTitle>
-                          <CardDescription className="text-xs mt-0.5">
-                            {new Intl.DateTimeFormat("pt-BR", {
-                              day: "2-digit", month: "short", year: "numeric"
-                            }).format(new Date(item.date))}
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="grid grid-cols-3 gap-1 text-center text-[10px] text-muted-foreground">
-                        <div>
-                          <div className="font-bold text-foreground text-sm">{item.movement}</div>
-                          Mov.
-                        </div>
-                        <div>
-                          <div className="font-bold text-foreground text-sm">{item.gloo}</div>
-                          Gelo
-                        </div>
-                        <div>
-                          <div className="font-bold text-foreground text-sm">{item.rotation}</div>
-                          Rot.
-                        </div>
-                      </div>
-                      {item.playstyle && (
-                        <div className="text-[10px] text-primary bg-primary/10 rounded px-2 py-1 text-center font-medium">
-                          {item.playstyle}
-                        </div>
-                      )}
-                      <button
-                        onClick={() => toggleHighlight(item.id)}
-                        disabled={togglingId === item.id}
-                        className={`w-full mt-2 flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border transition-all font-medium ${
-                          item.highlighted
-                            ? "border-primary/40 text-primary bg-primary/10 hover:bg-primary/20"
-                            : (profileData?.highlighted.length ?? 0) >= 5
-                            ? "border-border/30 text-muted-foreground/50 cursor-not-allowed"
-                            : "border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary"
-                        }`}
-                      >
-                        {item.highlighted ? (
-                          <><StarOff className="h-3.5 w-3.5" /> Remover destaque</>
-                        ) : (
-                          <><Star className="h-3.5 w-3.5" /> Destacar para Scouts</>
+              {(profileData?.analyses.length ?? 0) === 0 ? (
+                <div className="py-10 md:py-20 text-center">
+                  <Video className="h-16 w-16 mx-auto text-muted-foreground/20 mb-4" />
+                  <h3 className="text-xl font-bold text-muted-foreground">Nenhuma gameplay enviada ainda.</h3>
+                  <p className="text-sm text-muted-foreground">Envie um clipe na aba Visão Geral para começar.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {profileData?.analyses.map((item, idx) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                    >
+                      <Card className={`relative border transition-all ${item.highlighted
+                        ? "border-primary/60 shadow-lg shadow-primary/10 bg-primary/5"
+                        : "border-border/50 bg-card/40"
+                        }`}>
+                        {item.highlighted && (
+                          <div className="absolute top-2 left-2">
+                            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
+                              <Star className="h-2.5 w-2.5 mr-1 fill-primary" /> Destaque
+                            </Badge>
+                          </div>
                         )}
-                      </button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                        <CardHeader className="pb-2 pt-8">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="text-base">
+                                Score:{" "}
+                                <span className={`${item.score >= 70 ? "text-emerald-400" : item.score >= 45 ? "text-amber-400" : "text-red-400"}`}>
+                                  {item.score}/100
+                                </span>
+                              </CardTitle>
+                              <CardDescription className="text-xs mt-0.5">
+                                {new Intl.DateTimeFormat("pt-BR", {
+                                  day: "2-digit", month: "short", year: "numeric"
+                                }).format(new Date(item.date))}
+                              </CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="grid grid-cols-3 gap-1 text-center text-[10px] text-muted-foreground">
+                            <div>
+                              <div className="font-bold text-foreground text-sm">{item.movement}</div>
+                              Mov.
+                            </div>
+                            <div>
+                              <div className="font-bold text-foreground text-sm">{item.gloo}</div>
+                              Gelo
+                            </div>
+                            <div>
+                              <div className="font-bold text-foreground text-sm">{item.rotation}</div>
+                              Rot.
+                            </div>
+                          </div>
+                          {item.playstyle && (
+                            <div className="text-[10px] text-primary bg-primary/10 rounded px-2 py-1 text-center font-medium">
+                              {item.playstyle}
+                            </div>
+                          )}
+                          <Dialog>
+                            <DialogTrigger className="w-full mt-2 flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary transition-all font-medium">
+                              <ChevronRight className="h-3.5 w-3.5" /> Ver detalhes
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-2xl! w-full max-h-[85vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                  <BrainCircuit className="h-5 w-5 text-primary" />
+                                  Detalhes da Análise
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-5 mt-2">
+                                {/* Scores */}
+                                <div className="grid grid-cols-4 gap-3 text-center">
+                                  {[
+                                    { label: "Potencial", value: item.score },
+                                    { label: "Movimentação", value: item.movement },
+                                    { label: "Gelo", value: item.gloo },
+                                    { label: "Rotação", value: item.rotation },
+                                  ].map(({ label, value }) => (
+                                    <div key={label} className="rounded-xl bg-muted/30 p-3 border border-border/30">
+                                      <div className={`text-2xl font-black ${value >= 70 ? "text-emerald-400" : value >= 45 ? "text-amber-400" : "text-red-400"}`}>{value}</div>
+                                      <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {item.playstyle && (
+                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                                    <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                                    <span className="text-sm font-medium">Estilo recomendado: <span className="text-primary">{item.playstyle}</span></span>
+                                  </div>
+                                )}
+
+                                {item.recruiter_feedback && (
+                                  <div className="rounded-lg bg-muted/20 p-4 border border-border/50">
+                                    <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Feedback da IA</p>
+                                    <p className="text-sm leading-relaxed italic">&quot;{item.recruiter_feedback}&quot;</p>
+                                  </div>
+                                )}
+
+                                {/* Two-column grid for lists */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  {item.highlights.length > 0 && (
+                                    <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3">
+                                      <p className="text-xs font-semibold text-emerald-400 flex items-center gap-1 mb-2"><Zap className="h-3.5 w-3.5" /> Momentos de destaque</p>
+                                      <ul className="space-y-1.5">
+                                        {item.highlights.map((h, i) => (
+                                          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                                            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                                            {h}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {item.strengths.length > 0 && (
+                                    <div className="rounded-lg bg-sky-500/5 border border-sky-500/20 p-3">
+                                      <p className="text-xs font-semibold text-sky-400 flex items-center gap-1 mb-2"><Star className="h-3.5 w-3.5" /> Pontos fortes</p>
+                                      <ul className="space-y-1.5">
+                                        {item.strengths.map((s, i) => (
+                                          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                                            <CheckCircle2 className="h-4 w-4 text-sky-400 shrink-0 mt-0.5" />
+                                            {s}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {item.areas_for_improvement.length > 0 && (
+                                    <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+                                      <p className="text-xs font-semibold text-amber-400 flex items-center gap-1 mb-2"><TrendingUp className="h-3.5 w-3.5" /> Pontos a melhorar</p>
+                                      <ul className="space-y-1.5">
+                                        {item.areas_for_improvement.map((a, i) => (
+                                          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                                            <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                                            {a}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {item.mistakes.length > 0 && (
+                                    <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-3">
+                                      <p className="text-xs font-semibold text-red-400 flex items-center gap-1 mb-2"><TrendingDown className="h-3.5 w-3.5" /> Erros identificados</p>
+                                      <ul className="space-y-1.5">
+                                        {item.mistakes.map((m, i) => (
+                                          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                                            <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                                            {m}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          <button
+                            onClick={() => toggleHighlight(item.id)}
+                            disabled={togglingId === item.id}
+                            className={`w-full flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border transition-all font-medium ${item.highlighted
+                              ? "border-primary/40 text-primary bg-primary/10 hover:bg-primary/20"
+                              : (profileData?.highlighted.length ?? 0) >= 5
+                                ? "border-border/30 text-muted-foreground/50 cursor-not-allowed"
+                                : "border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary"
+                              }`}
+                          >
+                            {item.highlighted ? (
+                              <><StarOff className="h-3.5 w-3.5" /> Remover destaque</>
+                            ) : (
+                              <><Star className="h-3.5 w-3.5" /> Destacar para Scouts</>
+                            )}
+                          </button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
           </div>
-        </div>
         </TabsContent>
 
         {/* ─── Evolution Tab ─── */}
         <TabsContent value="history">
-        <div className={!canUseAnalysis ? "relative" : ""}>
-          {!canUseAnalysis && (
-            <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
-              <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
-                <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-                  <Lock className="h-7 w-7 text-primary" />
+          <div className={!canUseAnalysis ? "relative" : ""}>
+            {!canUseAnalysis && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+                <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                  <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                    <Lock className="h-7 w-7 text-primary" />
+                  </div>
+                  <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                  </p>
+                  <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                    <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                  </Link>
                 </div>
-                <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
-                  Descubra seu score de movimentação, gelo, rotação e potencial geral.
-                </p>
-                <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
-                  <Crown className="h-4 w-4 mr-2" /> Assinar PRO
-                </Link>
               </div>
-            </div>
-          )}
-          <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none" : ""}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Evolução do Score de IA
-              </CardTitle>
-              <CardDescription>
-                Seu histórico de score calculado a cada análise realizada
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {(profileData?.scoreHistory.length ?? 0) > 0 ? (
-                <div className="space-y-3">
-                  <div className="h-40 flex items-end gap-1.5 px-2">
-                    {profileData?.scoreHistory.map((entry, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-card border border-border text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                          {entry.score}/100
-                        </div>
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: `${entry.score}%` }}
-                          transition={{ duration: 0.5, delay: i * 0.05 }}
-                          className={`w-full rounded-t-sm ${
-                            entry.score >= 70 ? "bg-emerald-500/70" : entry.score >= 45 ? "bg-amber-500/70" : "bg-red-500/70"
-                          }`}
-                        />
+            )}
+            <div className={!canUseAnalysis ? "blur-sm pointer-events-none select-none" : ""}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Evolução do Score de IA
+                  </CardTitle>
+                  <CardDescription>
+                    Seu histórico de score calculado a cada análise realizada
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {(profileData?.scoreHistory.length ?? 0) > 0 ? (
+                    <div className="space-y-3">
+                      <div className="h-40 flex gap-1.5 px-2">
+                        {profileData?.scoreHistory.map((entry, i) => (
+                          <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1 group relative">
+                            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-card border border-border text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              {entry.score}/100
+                            </div>
+                            <motion.div
+                              initial={{ height: 0 }}
+                              animate={{ height: `${entry.score}%` }}
+                              transition={{ duration: 0.5, delay: i * 0.05 }}
+                              className={`w-full rounded-t-sm ${entry.score >= 70 ? "bg-emerald-500/70" : entry.score >= 45 ? "bg-amber-500/70" : "bg-red-500/70"
+                                }`}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground px-2">
-                    <span>Primeira análise</span>
-                    <span>Mais recente</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-                  <div className="text-center">
-                    <TrendingUp className="h-8 w-8 mx-auto mb-3 opacity-20" />
-                    <p>Seu gráfico de evolução aparecerá após a primeira análise</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      <div className="flex justify-between text-xs text-muted-foreground px-2">
+                        <span>Primeira análise</span>
+                        <span>Mais recente</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                      <div className="text-center">
+                        <TrendingUp className="h-8 w-8 mx-auto mb-3 opacity-20" />
+                        <p>Seu gráfico de evolução aparecerá após a primeira análise</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
         </TabsContent>
 
         {/* ─── Booyah Tab — acessível para todos os planos ─── */}
