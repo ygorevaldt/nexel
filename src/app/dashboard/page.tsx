@@ -31,7 +31,21 @@ import { buttonVariants } from "@/components/ui/button";
 import { BooyahTab } from "./_components/BooyahTab";
 
 const DAILY_PRO_LIMIT = 5;
-const MAX_VIDEO_SIZE_BYTES = 400 * 1024 * 1024;
+const MAX_VIDEO_SIZE_BYTES = 700 * 1024 * 1024;
+const MAX_VIDEO_DURATION_SECONDS = 6 * 60;
+
+function getVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => reject(new Error("Erro ao ler duração do vídeo"));
+    video.src = URL.createObjectURL(file);
+  });
+}
 
 interface AnalysisEntry {
   id: string;
@@ -169,7 +183,13 @@ export default function DashboardPage() {
     }
 
     if (file.size > MAX_VIDEO_SIZE_BYTES) {
-      toast.error("Vídeo muito grande. Máximo 400MB.");
+      toast.error("Vídeo muito grande. Máximo 700MB.");
+      return;
+    }
+
+    const videoDuration = await getVideoDuration(file);
+    if (videoDuration > MAX_VIDEO_DURATION_SECONDS) {
+      toast.error(`Vídeo muito longo. Máximo ${MAX_VIDEO_DURATION_SECONDS / 60} minutos.`);
       return;
     }
 
@@ -534,7 +554,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-primary/80 mb-2 animate-pulse">{statusMessage}</p>
               )}
               <p className="text-sm text-muted-foreground mb-2 max-w-[16rem]">
-                Faça upload de um vídeo de até 3 minutos para um raio-x completo da sua performance.
+                Faça upload de um vídeo de até 6 minutos para um raio-x completo da sua performance.
               </p>
               {!isScout && (
                 <p className={`text-xs mb-4 font-medium ${

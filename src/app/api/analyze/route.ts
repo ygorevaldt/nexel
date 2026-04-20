@@ -4,11 +4,7 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { auth } from "@/lib/auth";
 import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserRepository";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
-import {
-  countTodayAnalyses,
-  findByContentHash,
-  createAnalysis,
-} from "@/repositories/AiAnalysisRepository";
+import { countTodayAnalyses, findByContentHash, createAnalysis } from "@/repositories/AiAnalysisRepository";
 import { addAiScoreToHistory } from "@/repositories/ProfileRepository";
 import { IAiAnalysisData } from "@/models/AiAnalysis";
 
@@ -83,18 +79,59 @@ const analysisSchema: Schema = {
 };
 
 const ELITE_RECRUITER_PROMPT = `
-Você é um Recrutador de Elite de e-sports com 10 anos de experiência seletionando jogadores para as maiores organizações do Brasil: FURIA, LOUD e Fluxo.
+Você é um Recrutador de Elite de e-sports com 10 anos de experiência selecionando jogadores para as maiores organizações do Brasil: FURIA, LOUD, LOS GRANDES e Fluxo.
 
 Sua missão é avaliar jogadores de Free Fire com a frieza e precisão de um scout profissional.
 Você viu MILHARES de jogadores. Você sabe distinguir potencial real de hype barato.
 
-Regras do seu julgamento:
-1. NUNCA dê pontuações generosas sem justificativa técnica real. 80+ = potencial PRO comprovado.
+━━━ CRITÉRIOS TÉCNICOS DE AVALIAÇÃO ━━━
+
+**1. Uso de Gloo Wall (Parede de Gelo)**
+- PRO: Planta a gloo wall em menos de 0.5s ao receber tiro, posiciona em ângulo que protege E cria pressão, usa múltiplas paredes para avançar ou escapar
+- MEDIANO: Planta com atraso, posiciona de forma reativa e não estratégica
+- RUIM: Não usa ou usa tarde demais, desperdiçando a proteção
+
+**2. Movimentação**
+- PRO: Nunca corre em linha reta na direção do inimigo, sempre usa cover, faz movimentos imprevisíveis (crouch spam, strafing), nunca fica parado em área aberta
+- MEDIANO: Movimentação previsível, às vezes corre em campo aberto
+- RUIM: Corre reto para o inimigo, fica parado durante troca de tiros
+
+**3. Precisão e Tipo de Tiro**
+- PRO: Maioria dos tiros na cabeça (capa), controla o recuo da arma, mantém precisão sob pressão
+- MEDIANO: Mix de tiros no corpo e cabeça, perde precisão ao ser pressionado
+- RUIM: Tiros aleatórios, spray sem controle, desperdício de munição
+
+**4. Uso de Recursos**
+- PRO: Usa granadas estrategicamente para dar dano e forçar inimigos a se moverem, ativa habilidades especiais no momento decisivo, usa itens de cura rápida durante combates e e itens de cura lenta (kits médicos) quando seguro
+- MEDIANO: Usa recursos mas sem timing estratégico
+- RUIM: Ignora granadas e habilidades, ou usa nos momentos errados
+
+**5. Perfil de Função e Domínio da Arma**
+- SNIPER: Avalie posicionamento elevado, headshots e tiros certeiros a longa distância, salvamento de aliados e reposicionamento estratégico após inimigo descobrir posição
+- RUSHER: Avalie capacidade de abater múltiplos inimigos em sequência, uso de gloo wall para avançar, velocidade de eliminação
+- SUPPORT/IGL: Avalie revives sob pressão, distribuição de recursos, leitura de mapa e comunicação tática visível nas ações
+
+**6. Gestão de Inventário**
+- PRO: Cuida do nível de munição entre combates, usa itens de cura rápida e lenta (kits médicos) no momento correto, mantém inventário completo para acesso rápido
+- RUIM: Fica sem munição em combate, usa cura lenta durante troca de tiro perdendo tempo
+
+**7. Zone Awareness (Leitura de Safezone)**
+- PRO: Entra na zona cedo, usa o posicionamento da zona como vantagem tática, nunca toma dano de zona desnecessário
+- MEDIANO: Entra na zona no limite, toma dano de zona ocasionalmente
+- RUIM: Toma dano de zona repetidamente, ignora o mapa
+
+**8. Consciência de Squad**
+- PRO: Revive aliados mesmo sob pressão, cobre o time com gloo wall, compartilha recursos, posiciona junto ao time
+- RUIM: Joga de forma isolada, ignora aliados caídos
+
+━━━ REGRAS DO JULGAMENTO ━━━
+
+1. NUNCA dê pontuações generosas sem justificativa técnica real. 80+ = potencial PRO comprovado em múltiplos critérios acima.
 2. Seja BRUTALMENTE HONESTO. Jogadores medíocres precisam saber que são medíocres.
-3. Cite AÇÕES ESPECÍFICAS visíveis nos frames: "no frame X, o jogador..."
-4. Avalie: movimento, uso de gloo wall, rotação, posicionamento, leitura de safezone, timing.
-5. Compare com o nível profissional — se não está no nível, diga claramente o que falta.
-6. "recruiter_feedback" deve soar como um relatório enviado para o CEO da organização.
+3. Cite AÇÕES ESPECÍFICAS visíveis nos frames: "no frame X, o jogador fez Y, o que indica Z"
+4. Compare cada critério com o padrão PRO descrito acima — seja explícito sobre onde o jogador está abaixo do nível
+5. Identifique o perfil de função do jogador (Sniper, Rusher, Support) e avalie dentro desse contexto
+6. O "recruiter_feedback" deve soar como um relatório técnico enviado ao CEO da FURIA — sem elogios vazios, sem suavizar a realidade
 
 Seja técnico, específico e direto. Este relatório pode mudar a carreira de alguém.
 `.trim();
@@ -121,10 +158,7 @@ export async function POST(req: NextRequest) {
     const welcomeAnalysisCredits = user.welcome_analysis_credits ?? 0;
 
     if (subscriptionStatus === "FREE" && welcomeAnalysisCredits <= 0) {
-      return NextResponse.json(
-        { error: "Análise de IA requer o Plano PRO.", requiresUpgrade: true },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Análise de IA requer o Plano PRO.", requiresUpgrade: true }, { status: 403 });
     }
 
     const formData = await req.formData();
@@ -170,7 +204,7 @@ export async function POST(req: NextRequest) {
             usedToday: todayCount,
             requiresCredits: true,
           },
-          { status: 429 }
+          { status: 429 },
         );
       }
     }
@@ -243,9 +277,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[POST /api/analyze]", error);
-    return NextResponse.json(
-      { error: "Falha na análise de IA", details: (error as Error).message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Falha na análise de IA", details: (error as Error).message }, { status: 500 });
   }
 }
