@@ -23,11 +23,12 @@ const analysisSchema: Schema = {
     },
     movement_score: {
       type: Type.INTEGER,
-      description: "Nota 0-100 para qualidade de movimentação: uso de cover, strafing, crouch spam e imprevisibilidade.",
+      description:
+        "Nota 0-100 para qualidade de movimentação: uso de cover, strafing, crouch spam e imprevisibilidade.",
     },
     gloo_wall_usage: {
       type: Type.INTEGER,
-      description: "Nota 0-100 para velocidade, posicionamento e uso estratégico das gloo walls sob pressão.",
+      description: "Nota 0-100 para velocidade, posicionamento e uso estratégico das paredes de gelo sob pressão.",
     },
     rotation_efficiency: {
       type: Type.INTEGER,
@@ -41,22 +42,26 @@ const analysisSchema: Schema = {
     strengths: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "2-3 pontos fortes concretos identificados nos frames. Seja específico — reforce o que o jogador já domina para que ele continue desenvolvendo.",
+      description:
+        "3-5 pontos fortes concretos identificados nos frames. Seja específico — reforce o que o jogador já domina para que ele continue desenvolvendo.",
     },
     areas_for_improvement: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "2-3 missões de treino específicas. Cada item deve ser uma sugestão de exercício prático, por exemplo: 'Pratique plantar gloo wall em menos de 0.5s na Ilha de Treinamento por 15 min antes de cada sessão ranqueada.' Foco em ação, não em crítica.",
+      description:
+        "3-5 missões de treino específicas. Cada item deve ser uma sugestão de exercício prático, por exemplo: 'Pratique plantar Parede de Gelo em menos de 0.5s na Ilha de Treinamento por 15 min antes de cada sessão ranqueada.' Foco em ação, não em crítica.",
     },
     mistakes: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Erros pontuais visíveis nos frames, descritos de forma didática e sem julgamento. Mostre o erro e o porquê ele custa ao jogador, ex.: 'Corrida em linha reta durante a troca — isso torna o jogador um alvo fácil. Tente zigzag + crouch.'",
+      description:
+        "Erros pontuais visíveis nos frames, descritos de forma didática e sem julgamento. Mostre o erro e o porquê ele custa ao jogador, ex.: 'Corrida em linha reta durante a troca — isso torna o jogador um alvo fácil. Tente zigzag + crouch.'",
     },
     highlights: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Jogadas técnicas ou decisões inteligentes que merecem destaque e reconhecimento. Comemore cada uma — esses momentos mostram o teto do jogador.",
+      description:
+        "Jogadas técnicas ou decisões inteligentes que merecem destaque e reconhecimento. Comemore cada uma — esses momentos mostram o teto do jogador.",
     },
     recommended_playstyle: {
       type: Type.STRING,
@@ -85,7 +90,7 @@ Sua missão não é julgar o jogador, mas **acelerar a evolução dele**. Você 
 
 ━━━ CRITÉRIOS TÉCNICOS DE AVALIAÇÃO ━━━
 
-**1. Uso de Gloo Wall (Parede de Gelo)**
+**1. Uso de Parede de Gelo**
 - AVANÇADO: Planta em menos de 0.5s ao receber tiro, posiciona em ângulo que protege E cria pressão, usa múltiplas paredes para avançar ou escapar
 - EM DESENVOLVIMENTO: Planta com pequeno atraso, posicionamento reativo mas funcional
 - INICIANTE: Não usa ou usa tarde demais
@@ -107,7 +112,7 @@ Sua missão não é julgar o jogador, mas **acelerar a evolução dele**. Você 
 
 **5. Perfil de Função**
 - SNIPER: posicionamento elevado, headshots a distância, reposicionamento pós-exposição
-- RUSHER: abates em sequência, avanço com gloo wall, velocidade de eliminação
+- RUSHER: abates em sequência, avanço com Parede de Gelo, velocidade de eliminação
 - SUPPORT/IGL: revives sob pressão, distribuição de recursos, leitura de mapa
 
 **6. Zone Awareness**
@@ -116,7 +121,7 @@ Sua missão não é julgar o jogador, mas **acelerar a evolução dele**. Você 
 - INICIANTE: Toma dano de zona repetidamente
 
 **7. Consciência de Squad**
-- AVANÇADO: Revives aliados sob pressão, cobre com gloo wall, compartilha recursos
+- AVANÇADO: Revives aliados sob pressão, cobre com Parede de Gelo, compartilha recursos
 - INICIANTE: Joga de forma isolada, ignora aliados caídos
 
 ━━━ REGRAS DO COACHING ━━━
@@ -144,7 +149,7 @@ async function invokeGemini(
 ): Promise<Awaited<ReturnType<typeof ai.models.generateContent>>> {
   for (let attempt = 1; attempt <= GEMINI_MAX_RETRIES; attempt++) {
     try {
-      return await ai.models.generateContent({ model: "gemini-3-flash-preview", contents, config });
+      return await ai.models.generateContent({ model: "gemini-2.5-flash", contents, config });
     } catch (err) {
       const msg = (err as Error).message ?? "";
       const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("529");
