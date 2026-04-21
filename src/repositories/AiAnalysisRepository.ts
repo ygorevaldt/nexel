@@ -49,6 +49,19 @@ export async function findByContentHash(hash: string): Promise<IAiAnalysis | nul
     .lean();
 }
 
+export async function findByYoutubeUrl(url: string): Promise<IAiAnalysis | null> {
+  await dbConnect();
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() - CONTENT_HASH_CACHE_DAYS);
+  return AiAnalysis.findOne({
+    youtube_url: url,
+    status: 'COMPLETED',
+    createdAt: { $gte: expiryDate },
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
 export async function createAnalysis(data: {
   profile_id: string;
   status: IAiAnalysis['status'];
@@ -106,4 +119,22 @@ export async function findAnalysisByIdAndProfileId(
   }
   await dbConnect();
   return AiAnalysis.findOne({ _id: analysisId, profile_id: profileId }).lean();
+}
+
+/**
+ * Updates an existing analysis with new status and processing results
+ */
+export async function updateAnalysisData(
+  analysisId: string,
+  update: Partial<Pick<IAiAnalysis, 'status' | 'analysis_data' | 'token_usage' | 'error_message'>>
+): Promise<IAiAnalysis | null> {
+  if (!mongoose.isValidObjectId(analysisId)) {
+    return null;
+  }
+  await dbConnect();
+  return AiAnalysis.findByIdAndUpdate(
+    analysisId,
+    { $set: update },
+    { returnDocument: 'after' }
+  ).lean();
 }

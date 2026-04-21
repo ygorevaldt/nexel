@@ -12,8 +12,8 @@ O **Nexel** é uma plataforma SaaS alimentada por IA desenvolvida para profissio
 Jogadores criam um perfil focado em métricas competitivas, contendo histórico de desempenho, `Global Score` e highlights. A plataforma oferece um feed filtrável para que **Scouts (Olheiros)** identifiquem novos talentos baseados em dados reais, não apenas em clipes editados.
 
 ### 2. Coach IA (PRO)
-Através do processamento *client-side* com a **API nativa do browser** e a tecnologia **Google Gemini 2.5 Flash**, os jogadores recebem uma análise técnica rigorosa de seus clipes. A IA avalia com precisão:
-*   **Movimentação:** Agilidade, uso de HUD e posicionamento em combate.
+Através de **Processamento Assíncrono**, URLs de partidas hospedadas no YouTube (de até 10 minutos) são processadas nativamente pela tecnologia **Google Gemini 2.5 Flash** em plano de fundo (*Long Polling* via `waitUntil` da Vercel) evitando timeouts severos. A IA avalia com precisão:
+*   **Movimentação:** Agilidade, uso de cover e posicionamento em combate.
 *   **Uso de Gelo:** Velocidade de reação e eficiência das *Gloo Walls*.
 *   **Eficiência de Rotação:** Inteligência de mapa, timing de zona e tomada de decisão.
 *   **Relatório de Recrutador:** Feedback técnico detalhado com pontos de melhoria e elogios técnicos.
@@ -54,7 +54,8 @@ O projeto utiliza o **Next.js 16 App Router** com foco em performance e escalabi
 A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ### Análise de IA
-*   `POST /api/analyze`: Recebe frames de vídeo (base64) e o ID do perfil. Retorna um objeto JSON estruturado com scores e feedback técnico. Implementa *Context Caching* para otimização de custos e latência.
+*   `POST /api/analyze`: Recebe um payload JSON (`{ youtubeUrl }`). Rejeita vídeos maiores que 10 minutos. Devolve código `202 Accepted` de status com um `analysisId` de processamento e inicia envio assíncrono para a IA com `waitUntil`.
+*   `GET /api/analyze/[id]/status`: Rota de *Long Polling* que permite à UI do cliente checar até que o background preencha o registro com `COMPLETED` e retorne as métricas e sugestões técnicas daquela gameplay.
 
 ### Favoritos
 *   `POST /api/me/favorites`: Toggle favorito. Body: `{ profileId }`. Retorna `{ favorited: boolean, favorites_count: number }`. Impede auto-favoritar. Disponível para todos os planos.
@@ -84,12 +85,12 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ## 🤖 Pipeline de IA e Performance
 
-O **Nexel** resolve o desafio de processar vídeos em infraestrutura serverless através de uma estratégia híbrida:
+O **Nexel** resolve o desafio de processar vídeos longos (até 10 minutos) em infraestrutura serverless (Hobby Tier limit) através de uma estratégia otimizada:
 
-1.  **Extração Local:** A API nativa do browser (`HTMLVideoElement` + `Canvas`) extrai frames-chave diretamente no dispositivo do usuário — sem downloads de WASM, sem limite de memória, com suporte a vídeos de até 400MB.
-2.  **Payload Otimizado:** Apenas 6 frames em 960px são enviados para a API, reduzindo drasticamente o consumo de banda e tokens.
-3.  **Structured Output:** A API força um esquema JSON determinístico no Gemini, garantindo que o frontend receba dados prontos para exibição sem alucinações.
-4.  **Content Hash Cache:** Calcula SHA-256 dos frames antes de chamar o Gemini. Se o mesmo vídeo já foi analisado nos últimos 30 dias, retorna o resultado do banco de dados sem consumir tokens.
+1.  **Job Assíncrono:** Ao invés do uso agressivo de memória na UI, a plataforma coleta apenas o link do YouTube e delega sua análise a instâncias com `waitUntil(job)` disparando o Gemini em plano de fundo sem travar o browser.
+2.  **Verificação Nativa:** Usa do suporte nativo da IA de extração de visões em vídeos (Youtube Url input direto). Evita tráfego de carga binária direta entre os provedores.
+3.  **Structured Output:** A API força um esquema JSON determinístico e seguro no Gemini, garantindo que o banco de dados armazene o report perfeitamente isolado e validado.
+4.  **UX Assíncrona e Polling:** O Dashboard monitora o processo via requisições a cada 5s indicando andamento iterativo e comemorando a finalização sem travamentos de thread (Timeout de 60s não atinge a solicitação web de quem pede).
 
 ```mermaid
 sequenceDiagram
@@ -98,17 +99,21 @@ sequenceDiagram
     participant Gemini (Google)
     participant MongoDB
     
-    Jogador (Browser)->>Jogador (Browser): HTMLVideoElement + Canvas extraem 6 frames
-    Jogador (Browser)->>NextJS API: POST /api/analyze (Frames base64)
-    NextJS API->>MongoDB: Busca por Content Hash (SHA-256)
-    alt Cache Hit (mesmo vídeo nos últimos 30 dias)
-        MongoDB-->>NextJS API: Retorna análise cacheada
-        NextJS API-->>Jogador (Browser): Resultado instantâneo (sem custo de tokens)
-    else Cache Miss
-        NextJS API->>Gemini (Google): Prompt Técnico + Structured Schema + Frames
-        Gemini (Google)-->>NextJS API: Retorna JSON (Scores, Mentoria)
-        NextJS API->>MongoDB: Salva AiAnalysis + Atualiza Score do Perfil
-        NextJS API-->>Jogador (Browser): Resultado Pronto no Dashboard!
+    Jogador (Browser)->>NextJS API: POST /api/analyze (YouTube URL)
+    NextJS API->>NextJS API: Validauração com ytdl-core (<10m)
+    NextJS API->>MongoDB: Salva Analysis "PROCESSING"
+    NextJS API-->>Jogador (Browser): HTTP 202 Accepted + AnalysisID
+    
+    rect rgb(30, 41, 59)
+    note right of NextJS API: waitUntil() Background Thread
+    NextJS API->>Gemini (Google): Prompt Técnico + Structured Schema + YouTube URL
+    Gemini (Google)-->>NextJS API: Retorna JSON (Scores, Feedback)
+    NextJS API->>MongoDB: Atualiza Analysis para "COMPLETED"
+    end
+    
+    loop A cada 5 segundos
+        Jogador (Browser)->>NextJS API: GET /api/analyze/[id]/status
+        NextJS API-->>Jogador (Browser): Status "COMPLETED" + Data
     end
 ```
 

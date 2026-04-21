@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
+import { waitUntil } from "@vercel/functions";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
+import ytdl from "ytdl-core";
 import { auth } from "@/lib/auth";
 import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserRepository";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
-import { countTodayAnalyses, findByContentHash, createAnalysis } from "@/repositories/AiAnalysisRepository";
+import { countTodayAnalyses, createAnalysis, updateAnalysisData, findByYoutubeUrl } from "@/repositories/AiAnalysisRepository";
 import { addAiScoreToHistory } from "@/repositories/ProfileRepository";
 import { IAiAnalysisData } from "@/models/AiAnalysis";
+import dbConnect from "@/lib/db";
+import { AiAnalysis } from "@/models/AiAnalysis";
 
 const DAILY_PRO_LIMIT = 5;
 
@@ -43,19 +46,19 @@ const analysisSchema: Schema = {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description:
-        "3-5 pontos fortes concretos identificados nos frames. Seja específico — reforce o que o jogador já domina para que ele continue desenvolvendo.",
+        "3-5 pontos fortes concretos identificados no vídeo. Seja específico — reforce o que o jogador já domina para que ele continue desenvolvendo.",
     },
     areas_for_improvement: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description:
-        "3-5 missões de treino específicas. Cada item deve ser uma sugestão de exercício prático, por exemplo: 'Pratique plantar Parede de Gelo em menos de 0.5s na Ilha de Treinamento por 15 min antes de cada sessão ranqueada.' Foco em ação, não em crítica.",
+        "3-5 missões de treino específicas. Cada item deve ser uma sugestão de exercício prático. Foco em ação, não em crítica.",
     },
     mistakes: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description:
-        "Erros pontuais visíveis nos frames, descritos de forma didática e sem julgamento. Mostre o erro e o porquê ele custa ao jogador, ex.: 'Corrida em linha reta durante a troca — isso torna o jogador um alvo fácil. Tente zigzag + crouch.'",
+        "Erros pontuais visíveis, descritos de forma didática e sem julgamento. Mostre o erro e o porquê ele custa ao jogador.",
     },
     highlights: {
       type: Type.ARRAY,
@@ -87,6 +90,9 @@ const ELITE_RECRUITER_PROMPT = `
 Você é o Coach IA do Nexel — um treinador de elite especializado em Free Fire, com anos de experiência formando jogadores do zero até o nível competitivo.
 
 Sua missão não é julgar o jogador, mas **acelerar a evolução dele**. Você acredita que todo jogador tem potencial a ser desenvolvido. Seu papel é ser o melhor treinador que ele já teve: técnico, honesto, encorajador e focado em progresso.
+
+FOCO DA ANÁLISE:
+Concentre-se APENAS nos momentos de combate direto, reposicionamento sob fogo, e rotação tática. Ignore completamente telas de carregamento, lobby, loot pacífico ou de menus fora da partida.
 
 ━━━ CRITÉRIOS TÉCNICOS DE AVALIAÇÃO ━━━
 
@@ -128,36 +134,95 @@ Sua missão não é julgar o jogador, mas **acelerar a evolução dele**. Você 
 
 1. Sempre reconheça o que foi BEM FEITO antes de apontar o que melhorar. Isso não é condescendência — é metodologia de coaching eficaz.
 2. Transforme CADA ponto de melhoria em uma MISSÃO DE TREINO prática e específica, com exercício sugerido.
-3. Seja TÉCNICO e ESPECÍFICO. Cite ações visíveis nos frames. Generalizações não ajudam ninguém a evoluir.
+3. Seja TÉCNICO e ESPECÍFICO. Cite ações visíveis. Generalizações não ajudam ninguém a evoluir.
 4. Use linguagem que INCENTIVA A VOLTA: "Na próxima análise, vamos ver como você dominou isso."
 5. Avalie as notas com JUSTIÇA: um jogador iniciante que executa o básico corretamente merece 50+. Notas baixas sem base técnica desmotivam sem ajudar.
 6. O "recruiter_feedback" deve soar como uma sessão de coaching real — honesto sobre os gaps, mas fundamentalmente crente no potencial do jogador.
 7. Identifique o perfil de função e avalie dentro desse contexto. Um Rusher não deve ser penalizado por não jogar como Sniper.
 
-Seu objetivo final: o jogador deve terminar a leitura desta análise **animado para enviar o próximo clipe**, não desanimado. Evolução é um processo e você está aqui para guiar cada passo.
+Seu objetivo final: o jogador deve terminar a leitura desta análise **animado para continuar jogando e evoluindo**, não desanimado.
 `.trim();
 
-// Vercel Pro allows up to 300s; Hobby plan caps at 60s.
-export const maxDuration = 300;
+export const maxDuration = 120; // Expanded to allow some buffer
 
 const GEMINI_MAX_RETRIES = 3;
 const GEMINI_RETRY_DELAY_MS = 3000;
 
-async function invokeGemini(
-  contents: Parameters<typeof ai.models.generateContent>[0]["contents"],
-  config: Parameters<typeof ai.models.generateContent>[0]["config"],
-): Promise<Awaited<ReturnType<typeof ai.models.generateContent>>> {
+async function invokeGemini(youtubeUrl: string) {
   for (let attempt = 1; attempt <= GEMINI_MAX_RETRIES; attempt++) {
     try {
-      return await ai.models.generateContent({ model: "gemini-2.5-flash", contents, config });
+      return await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          ELITE_RECRUITER_PROMPT,
+          "Analise o seguinte vídeo de gameplay e forneça sua avaliação completa como Coach IA, focado em desenvolver e motivar o jogador:",
+          `Vídeo do YouTube: ${youtubeUrl}`
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: analysisSchema,
+          temperature: 0.2,
+        }
+      });
     } catch (err) {
       const msg = (err as Error).message ?? "";
-      const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("529");
+      const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("529") || msg.includes("429");
       if (!isRetryable || attempt === GEMINI_MAX_RETRIES) throw err;
       await new Promise((r) => setTimeout(r, GEMINI_RETRY_DELAY_MS * attempt));
     }
   }
   throw new Error("Gemini: retries esgotados");
+}
+
+async function processVideoAnalysis(
+  analysisId: string,
+  youtubeUrl: string,
+  profileId: string,
+  userId: string,
+  isAdm: boolean,
+  subscriptionStatus: string
+) {
+  try {
+    const response = await invokeGemini(youtubeUrl);
+
+    if (!response.text) {
+      throw new Error("Gemini não retornou resposta");
+    }
+
+    let analysisData: IAiAnalysisData;
+    try {
+      analysisData = JSON.parse(response.text) as IAiAnalysisData;
+    } catch {
+      throw new Error("Resposta do Gemini não é um JSON válido");
+    }
+
+    // Save Analysis & Update Profile Score
+    await updateAnalysisData(analysisId, {
+      status: "COMPLETED",
+      analysis_data: analysisData,
+      token_usage: {
+        prompt_tokens: response.usageMetadata?.promptTokenCount ?? 0,
+        completion_tokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+        total_tokens: response.usageMetadata?.totalTokenCount ?? 0,
+        cache_hit: false,
+      },
+    });
+
+    await addAiScoreToHistory(profileId, analysisData.overall_potential_score);
+
+    if (!isAdm && subscriptionStatus === "FREE") {
+      await consumeWelcomeAnalysisCredit(userId);
+    }
+    
+    // Future: push notification could be triggered here.
+  } catch (error) {
+    console.error("[processVideoAnalysis] Background error:", error);
+    const message = (error as Error).message ?? "Falha interna no processamento";
+    await updateAnalysisData(analysisId, {
+      status: "FAILED",
+      error_message: message,
+    });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -183,15 +248,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Análise de IA requer o Plano PRO.", requiresUpgrade: true }, { status: 403 });
     }
 
-    const formData = await req.formData();
-    const framesBase64 = formData.getAll("frames") as string[];
+    const body = await req.json().catch(() => ({}));
+    const youtubeUrl = body.youtubeUrl;
 
-    if (!framesBase64 || framesBase64.length === 0) {
-      return NextResponse.json({ error: "Nenhum frame fornecido" }, { status: 400 });
+    if (!youtubeUrl || typeof youtubeUrl !== "string") {
+      return NextResponse.json({ error: "A URL do YouTube é obrigatória." }, { status: 400 });
     }
 
-    // ─── Authorization: profile must belong to the authenticated user ─────────
-    // We ignore any profile_id sent by the client and derive it from the session.
+    // ─── Validate YouTube URL Duration ────────────────────────────────────────
+    let durationSeconds = 0;
+    try {
+      const info = await ytdl.getBasicInfo(youtubeUrl);
+      durationSeconds = parseInt(info.videoDetails.lengthSeconds || "0", 10);
+    } catch (err) {
+      console.error("Erro ao validar URL do YouTube:", err);
+      return NextResponse.json({ error: "URL inválida ou vídeo indisponível." }, { status: 400 });
+    }
+
+    if (durationSeconds > 600) {
+      return NextResponse.json({ error: "O Nexel analisa partidas intensas de até 10 minutos. Por favor, envie um clipe ou uma partida mais curta." }, { status: 400 });
+    }
+
+    // ─── Authorization ────────────────────────────────────────────────────────
     const profile = await findProfileByUserId(session.user.id);
     if (!profile) {
       return NextResponse.json({ error: "Perfil não encontrado para este usuário." }, { status: 404 });
@@ -199,18 +277,14 @@ export async function POST(req: NextRequest) {
 
     const profileId = String(profile._id);
 
-    // ─── Content Hash: Memoization Cache (global, 30-day TTL) ────────────────
-    const contentHash = createHash("sha256").update(framesBase64.join("")).digest("hex");
-    const cachedAnalysis = await findByContentHash(contentHash);
-
+    // ─── Cache Check: Memoization ─────────────────────────────────────────────
+    const cachedAnalysis = await findByYoutubeUrl(youtubeUrl);
     if (cachedAnalysis) {
-      // Cache hit: create a new analysis record for this profile reusing the cached data,
-      // then update score history and consume credit as normal — only Gemini is skipped.
       const newAnalysis = await createAnalysis({
         profile_id: profileId,
         status: "COMPLETED",
         analysis_data: cachedAnalysis.analysis_data,
-        content_hash: contentHash,
+        youtube_url: youtubeUrl,
         token_usage: {
           prompt_tokens: 0,
           completion_tokens: 0,
@@ -227,16 +301,13 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        data: newAnalysis,
-        cacheUsed: true,
-        cost_optimization: {
-          cache_hit: true,
-          tokens_used: 0,
-        },
+        analysisId: newAnalysis._id,
+        status: "COMPLETED",
+        cacheUsed: true
       });
     }
 
-    // ─── Daily Limit (PRO only — SCOUT and ADM are unlimited) ───────────────
+    // ─── Daily Limit Check (PRO only) ─────────────────────────────────────────
     if (!isAdm && subscriptionStatus === "PRO") {
       const todayCount = await countTodayAnalyses(profileId);
       if (todayCount >= DAILY_PRO_LIMIT) {
@@ -252,80 +323,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ─── Format frames as inline parts ───────────────────────────────────────
-    const inlineDataParts = framesBase64.map((base64Str) => {
-      const base64Content = base64Str.split(",")[1] || base64Str;
-      return {
-        inlineData: {
-          data: base64Content,
-          mimeType: "image/jpeg" as const,
-        },
-      };
+    // ─── Create DB Record ─────────────────────────────────────────────────────
+    // Salva imediatamente como PROCESSING
+    await dbConnect();
+    const newAnalysis = new AiAnalysis({
+      profile_id: profileId,
+      youtube_url: youtubeUrl,
+      status: "PROCESSING",
+      token_usage: {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+        cache_hit: false,
+      }
     });
+    await newAnalysis.save();
 
-    // ─── Invoke Gemini 2.5 Flash ──────────────────────────────────────────────
-    const response = await invokeGemini(
-      [
-        ELITE_RECRUITER_PROMPT,
-        "Analise os seguintes frames de gameplay e forneça sua avaliação completa como Coach IA, focado em desenvolver e motivar o jogador:",
-        ...inlineDataParts,
-      ],
-      {
-        responseMimeType: "application/json",
-        responseSchema: analysisSchema,
-        temperature: 0.2,
-      },
+    // ─── Dispatch Background Job ──────────────────────────────────────────────
+    waitUntil(
+      processVideoAnalysis(
+        String(newAnalysis._id),
+        youtubeUrl,
+        profileId,
+        session.user.id,
+        isAdm,
+        subscriptionStatus
+      )
     );
 
-    if (!response.text) {
-      throw new Error("Gemini não retornou resposta");
-    }
-
-    let analysisData: IAiAnalysisData;
-    try {
-      analysisData = JSON.parse(response.text) as IAiAnalysisData;
-    } catch {
-      throw new Error("Resposta do Gemini não é um JSON válido");
-    }
-
-    // ─── Save Analysis & Update Profile Score ─────────────────────────────────
-    const newAnalysis = await createAnalysis({
-      profile_id: profileId,
-      status: "COMPLETED",
-      analysis_data: analysisData,
-      content_hash: contentHash,
-      token_usage: {
-        prompt_tokens: response.usageMetadata?.promptTokenCount ?? 0,
-        completion_tokens: response.usageMetadata?.candidatesTokenCount ?? 0,
-        total_tokens: response.usageMetadata?.totalTokenCount ?? 0,
-        cache_hit: false,
-      },
-    });
-
-    await addAiScoreToHistory(profileId, analysisData.overall_potential_score);
-
-    if (!isAdm && subscriptionStatus === "FREE") {
-      await consumeWelcomeAnalysisCredit(session.user.id);
-    }
-
+    // Retorna 202 imediatamente
     return NextResponse.json({
       success: true,
-      data: newAnalysis,
-      cacheUsed: false,
-      cost_optimization: {
-        cache_hit: false,
-        tokens_used: response.usageMetadata?.totalTokenCount ?? 0,
-      },
-    });
+      analysisId: newAnalysis._id,
+      status: "PROCESSING"
+    }, { status: 202 });
+
   } catch (error) {
     console.error("[POST /api/analyze]", error);
     const message = (error as Error).message ?? "";
-    if (message.includes("503") || message.includes("UNAVAILABLE")) {
-      return NextResponse.json(
-        { error: "O avaliador de IA está sobrecarregado no momento. Tente novamente em alguns instantes." },
-        { status: 503 },
-      );
-    }
-    return NextResponse.json({ error: "Falha na análise de IA", details: message }, { status: 500 });
+    return NextResponse.json({ error: "Falha ao enfileirar análise de IA", details: message }, { status: 500 });
   }
 }

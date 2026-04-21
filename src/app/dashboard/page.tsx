@@ -45,21 +45,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { BooyahTab } from "./_components/BooyahTab";
 
 const DAILY_PRO_LIMIT = 5;
-const MAX_VIDEO_SIZE_BYTES = 700 * 1024 * 1024;
-const MAX_VIDEO_DURATION_SECONDS = 6 * 60;
 
-function getVideoDuration(file: File): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      URL.revokeObjectURL(video.src);
-      resolve(video.duration);
-    };
-    video.onerror = () => reject(new Error("Erro ao ler duração do vídeo"));
-    video.src = URL.createObjectURL(file);
-  });
-}
 
 interface AnalysisEntry {
   id: string;
@@ -127,11 +113,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const [profileData, setProfileData] = useState<ProfileState | null>(null);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [pollingAnalysisId, setPollingAnalysisId] = useState<string | null>(null);
   const [analysesPage, setAnalysesPage] = useState(1);
   const [analysesHasMore, setAnalysesHasMore] = useState(false);
   const [loadingMoreAnalyses, setLoadingMoreAnalyses] = useState(false);
@@ -224,23 +210,9 @@ export default function DashboardPage() {
     analysesHasMore && !loading && !loadingMoreAnalyses
   );
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("video/")) {
-      toast.error("Por favor, selecione um arquivo de vídeo.");
-      return;
-    }
-
-    if (file.size > MAX_VIDEO_SIZE_BYTES) {
-      toast.error("Vídeo muito grande. Máximo 700MB.");
-      return;
-    }
-
-    const videoDuration = await getVideoDuration(file);
-    if (videoDuration > MAX_VIDEO_DURATION_SECONDS) {
-      toast.error(`Vídeo muito longo. Máximo ${MAX_VIDEO_DURATION_SECONDS / 60} minutos.`);
+  const handleYoutubeAnalysis = async () => {
+    if (!youtubeUrl) {
+      toast.error("Por favor, cole o link do vídeo do YouTube.");
       return;
     }
 
@@ -269,46 +241,15 @@ export default function DashboardPage() {
       return;
     }
 
-    setUploading(true);
+    setAnalyzing(true);
     setStatusMessage("Iniciando processamento...");
 
     try {
-      const { extractFrames } = await import("@/lib/video-processor");
-      const frameUrls = await extractFrames(file, 3, (msg) => setStatusMessage(msg));
-
-      if (frameUrls.length === 0) {
-        toast.error("Não foi possível extrair frames do vídeo.");
-        return;
-      }
-
-      setUploading(false);
-      setAnalyzing(true);
-      setStatusMessage("Preparando frames para análise...");
-
-      const framesBase64: string[] = await Promise.all(
-        frameUrls.map(async (url) => {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-        })
-      );
-
-      frameUrls.forEach((url) => URL.revokeObjectURL(url));
-
-      setStatusMessage("Enviando para o Scout IA...");
-      const formData = new FormData();
-      framesBase64.forEach((frame) => formData.append("frames", frame));
-      formData.append(
-        "profile_id",
-        (session?.user as { profileId?: string })?.profileId ?? session?.user?.id ?? ""
-      );
-
-      setStatusMessage("Nossa IA está analisando sua gameplay...");
-      const res = await fetch("/api/analyze", { method: "POST", body: formData });
+      const res = await fetch("/api/analyze", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ youtubeUrl })
+      });
       const json = await res.json();
 
       if (!res.ok) {
@@ -320,27 +261,68 @@ export default function DashboardPage() {
             },
           });
         } else {
-          toast.error(json.error ?? "Erro na análise");
+          toast.error(json.error ?? "Erro ao iniciar análise");
         }
+        setAnalyzing(false);
+        setStatusMessage("");
         return;
       }
 
-      toast.success("Análise concluída! Seu Score foi atualizado.", {
-        description: `Score potencial: ${json.data?.analysis_data?.overall_potential_score ?? "—"}/100`,
-        duration: 6000,
-      });
-
-      await fetchProfile();
+      setPollingAnalysisId(json.analysisId);
+      setStatusMessage("Analisando Partida... Isso pode levar até 1 minuto.");
+      setYoutubeUrl(""); // Clear input
     } catch (err) {
-      console.error("Upload error:", err);
-      toast.error("Erro ao processar vídeo. Tente novamente.");
-    } finally {
-      setUploading(false);
+      console.error("Analysis init error:", err);
+      toast.error("Erro ao iniciar análise. Tente novamente.");
       setAnalyzing(false);
       setStatusMessage("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (pollingAnalysisId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/analyze/${pollingAnalysisId}/status`);
+          if (res.ok) {
+            const data = await res.json();
+            
+            if (data.status === "PROCESSING" || data.status === "PENDING") {
+               const messages = [
+                 "Extraindo táticas da partida...", 
+                 "Analisando movimentação e gelo...", 
+                 "Avaliando uso de recursos...",
+                 "Gerando relatório do recrutador..."
+               ];
+               setStatusMessage(messages[Math.floor(Math.random() * messages.length)]);
+            } else if (data.status === "COMPLETED") {
+              clearInterval(interval);
+              setPollingAnalysisId(null);
+              setAnalyzing(false);
+              setStatusMessage("");
+              toast.success("Análise concluída! Seu Score foi atualizado.", {
+                description: `Score potencial: ${data.data?.overall_potential_score ?? "—"}/100`,
+                duration: 6000,
+              });
+              fetchProfile();
+            } else if (data.status === "FAILED") {
+              clearInterval(interval);
+              setPollingAnalysisId(null);
+              setAnalyzing(false);
+              setStatusMessage("");
+              toast.error(`Falha na análise: ${data.errorMessage}`);
+            }
+          }
+        } catch (error) {
+          console.error("Error polling status:", error);
+        }
+      }, 5000);
+    }
+
+    return () => clearInterval(interval);
+  }, [pollingAnalysisId, fetchProfile]);
 
   const toggleHighlight = async (analysisId: string) => {
     setTogglingId(analysisId);
@@ -598,7 +580,7 @@ export default function DashboardPage() {
                 {/* Upload Card */}
                 <Card className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 hover:border-primary/50 transition-colors">
                   <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center text-primary mb-4">
-                    {uploading || analyzing ? (
+                    {analyzing ? (
                       <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -606,51 +588,58 @@ export default function DashboardPage() {
                         <Loader2 className="h-8 w-8" />
                       </motion.div>
                     ) : (
-                      <UploadCloud className="h-8 w-8" />
+                      <Video className="h-8 w-8" />
                     )}
                   </div>
                   <h3 className="text-lg font-bold mb-2">
-                    {(uploading || analyzing) ? "Processando..." : "Nova Análise"}
+                    {analyzing ? "Processando..." : "Nova Análise por YouTube"}
                   </h3>
-                  {(uploading || analyzing) && statusMessage && (
-                    <p className="text-xs text-primary/80 mb-2 animate-pulse">{statusMessage}</p>
+                  {analyzing && statusMessage && (
+                    <p className="text-sm font-medium text-primary mb-4 animate-pulse">{statusMessage}</p>
                   )}
-                  <p className="text-sm text-muted-foreground mb-2 max-w-[16rem]">
-                    Faça upload de um vídeo de até 6 minutos para um raio-x completo da sua performance.
-                  </p>
-                  {!isScout && (
-                    <p className={`text-xs mb-4 font-medium ${(!isPro && welcomeAnalysisCredits === 0) || (isPro && dailyRemaining === 0)
-                      ? "text-red-400"
-                      : "text-muted-foreground/70"
-                      }`}>
-                      {isPro
-                        ? dailyRemaining === 0
-                          ? "Limite diário atingido — compre créditos para continuar"
-                          : `${dailyRemaining} análise${dailyRemaining !== 1 ? "s" : ""} restante${dailyRemaining !== 1 ? "s" : ""} hoje`
-                        : welcomeAnalysisCredits === 0
-                          ? "Créditos gratuitos esgotados"
-                          : `${welcomeAnalysisCredits} crédito${welcomeAnalysisCredits !== 1 ? "s" : ""} gratuito${welcomeAnalysisCredits !== 1 ? "s" : ""} disponível${welcomeAnalysisCredits !== 1 ? "is" : ""}`}
-                    </p>
+                  {!analyzing && (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-4 max-w-[16rem]">
+                        Cole o link de uma partida no YouTube (até 10 min) para receber um raio-x completo do Coach IA.
+                      </p>
+                      
+                      {!isScout && (
+                        <p className={`text-xs mb-4 font-medium ${(!isPro && welcomeAnalysisCredits === 0) || (isPro && dailyRemaining === 0)
+                          ? "text-red-400"
+                          : "text-muted-foreground/70"
+                          }`}>
+                          {isPro
+                            ? dailyRemaining === 0
+                              ? "Limite diário atingido — compre créditos para continuar"
+                              : `${dailyRemaining} análise${dailyRemaining !== 1 ? "s" : ""} restante${dailyRemaining !== 1 ? "s" : ""} hoje`
+                            : welcomeAnalysisCredits === 0
+                              ? "Créditos gratuitos esgotados"
+                              : `${welcomeAnalysisCredits} crédito${welcomeAnalysisCredits !== 1 ? "s" : ""} gratuito${welcomeAnalysisCredits !== 1 ? "s" : ""} disponível${welcomeAnalysisCredits !== 1 ? "is" : ""}`}
+                        </p>
+                      )}
+                      
+                      <div className="flex w-full max-w-sm flex-col gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://youtu.be/..."
+                          value={youtubeUrl}
+                          onChange={(e) => setYoutubeUrl(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={(!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))}
+                        />
+                        <button
+                          onClick={handleYoutubeAnalysis}
+                          disabled={!youtubeUrl || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))}
+                          className={`cursor-pointer w-full inline-flex justify-center items-center px-4 py-2 h-10 rounded-md font-medium transition-colors text-sm ${(!youtubeUrl || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0))))
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : "bg-primary text-primary-foreground hover:bg-primary/90"
+                            }`}
+                        >
+                          Analisar Gameplay
+                        </button>
+                      </div>
+                    </>
                   )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="video/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="video-upload"
-                    disabled={uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))}
-                  />
-                  <label
-                    htmlFor="video-upload"
-                    className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${uploading || analyzing || (!isScout && ((isPro && dailyRemaining === 0) || (!isPro && welcomeAnalysisCredits === 0)))
-                      ? "bg-muted text-muted-foreground cursor-not-allowed"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90"
-                      }`}
-                  >
-                    <UploadCloud className="h-4 w-4 mr-2" />
-                    {uploading || analyzing ? "Processando..." : "Enviar Clipe"}
-                  </label>
                 </Card>
               </div>
             </div>

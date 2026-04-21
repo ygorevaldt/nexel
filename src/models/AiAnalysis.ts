@@ -23,6 +23,7 @@ export interface IAiAnalysisData {
 export interface IAiAnalysis extends Document {
   profile_id: mongoose.Types.ObjectId;
   video_url?: string;
+  youtube_url?: string;
   content_hash?: string;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   analysis_data?: IAiAnalysisData;
@@ -44,6 +45,7 @@ const AiAnalysisSchema: Schema<IAiAnalysis> = new Schema(
   {
     profile_id: { type: Schema.Types.ObjectId, ref: 'Profile', required: true },
     video_url: { type: String },
+    youtube_url: { type: String },
     status: {
       type: String,
       enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'],
