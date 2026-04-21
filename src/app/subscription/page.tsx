@@ -296,7 +296,7 @@ function SubscriptionContent() {
 
       {/* Plan Cards */}
       <div className="grid md:grid-cols-2 gap-4 md:gap-6 items-stretch">
-        {AVAILABLE_PLANS.map((plan, idx) => {
+        {(data?.availablePlans && data.availablePlans.length > 0 ? data.availablePlans : AVAILABLE_PLANS).map((plan, idx) => {
           const isCurrentPlan = currentStatus === plan.id;
           const planIcons = [BrainCircuit, Users];
           const PlanIcon = planIcons[idx] ?? Star;

@@ -3,13 +3,9 @@ import Stripe from 'stripe';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { findUserById, updateSubscription } from '@/repositories/UserRepository';
+import { findPlanById } from '@/repositories/PlanRepository';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-const PLAN_PRICE_IDS: Record<string, string | undefined> = {
-  PRO: process.env.STRIPE_PRICE_PRO,
-  SCOUT: process.env.STRIPE_PRICE_SCOUT,
-};
 
 const CheckoutSchema = z.object({
   planId: z.enum(['PRO', 'SCOUT']),
@@ -28,7 +24,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { planId } = body.data;
-    const priceId = PLAN_PRICE_IDS[planId];
+    const plan = await findPlanById(planId);
+    const priceId = plan?.stripePriceId;
 
     if (!priceId) {
       return NextResponse.json(

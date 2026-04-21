@@ -58,12 +58,14 @@ src/
 │   ├── Profile.ts
 │   ├── AiAnalysis.ts
 │   ├── Challenge.ts
+│   ├── Plan.ts
 │   └── Transaction.ts
 ├── repositories/             → ÚNICA camada de acesso ao banco
 │   ├── UserRepository.ts
 │   ├── ProfileRepository.ts
 │   ├── AiAnalysisRepository.ts
 │   ├── ChallengeRepository.ts
+│   ├── PlanRepository.ts
 │   └── TransactionRepository.ts
 └── types/
     └── next-auth.d.ts        → Extensão dos tipos da sessão

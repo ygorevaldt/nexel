@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { findUserById } from "@/repositories/UserRepository";
 import { findTransactionsByUser } from "@/repositories/TransactionRepository";
+import { findAllActivePlans } from "@/repositories/PlanRepository";
 
 /**
  * GET /api/subscription
@@ -11,8 +12,25 @@ import { findTransactionsByUser } from "@/repositories/TransactionRepository";
 export async function GET() {
   try {
     const session = await auth();
+
+    // Semi-public route: Fetch active plans
+    const plans = await findAllActivePlans();
+    const availablePlans = plans.map((p) => ({
+      id: p.planId,
+      name: p.name,
+      description: p.description,
+      priceMonthly: p.priceMonthlyCents,
+      stripePriceId: p.stripePriceId,
+      features: p.features,
+    }));
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+      return NextResponse.json({
+        subscriptionStatus: "FREE",
+        accountType: "PLAYER",
+        availablePlans,
+        transactions: [],
+      });
     }
 
     const [user, transactions] = await Promise.all([
@@ -42,36 +60,7 @@ export async function GET() {
       subscriptionStatus: user.subscriptionStatus,
       accountType: user.accountType,
       subscriptionEndDate: user.subscriptionEndDate ?? null,
-      /** Plans with their Stripe Price IDs — ready for checkout session creation */
-      availablePlans: [
-        {
-          id: "PRO",
-          name: "Jogador Pro",
-          description: "Análises de IA ilimitadas + histórico completo de evolução",
-          priceMonthly: 2990, // R$ 29,90 in cents
-          stripePriceId: process.env.STRIPE_PRICE_PRO ?? null,
-          features: [
-            "Análises de gameplay ilimitadas",
-            "Histórico de evolução (AI Score)",
-            "Feedback de Performance",
-            "Perfil destacado no ranking",
-          ],
-        },
-        {
-          id: "SCOUT",
-          name: "Scout / Time",
-          description: "Acesso a dados de contato + filtros avançados de busca de talentos",
-          priceMonthly: 9990, // R$ 99,90 in cents
-          stripePriceId: process.env.STRIPE_PRICE_SCOUT ?? null,
-          features: [
-            "Tudo do Plano Pro",
-            "Acesso a dados de contato dos jogadores",
-            "Filtros avançados de busca de talentos",
-            "Exportar relatórios de jogadores",
-            "Badge verificado no perfil",
-          ],
-        },
-      ],
+      availablePlans,
       transactions: txData,
     });
   } catch (error) {
