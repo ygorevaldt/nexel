@@ -359,6 +359,9 @@ export default function DashboardPage() {
   const welcomeAnalysisCredits = profileData?.welcomeAnalysisCredits ?? 0;
   const hasAnalyses = (profileData?.analyses?.length ?? 0) > 0;
   const canUseAnalysis = isPro || welcomeAnalysisCredits > 0 || hasAnalyses;
+  const welcomeBooyahCredits = profileData?.welcomeBooyahCredits ?? 0;
+  const hasBooyahs = (profileData?.booyahVictories?.length ?? 0) > 0;
+  const canUseBooyah = isPro || welcomeBooyahCredits > 0 || hasBooyahs;
   const globalScore = profileData?.globalScore ?? 0;
   const dailyUsed = profileData?.dailyUsed ?? 0;
   const dailyLimit = profileData?.dailyLimit ?? DAILY_PRO_LIMIT;
@@ -907,17 +910,38 @@ export default function DashboardPage() {
           </div>
         </TabsContent>
 
-        {/* ─── Booyah Tab — acessível para todos os planos ─── */}
+        {/* ─── Booyah Tab ─── */}
         <TabsContent value="booyah">
-          <BooyahTab
-            victories={profileData?.booyahVictories ?? []}
-            stats={profileData?.booyahStats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 }}
-            dailyUsed={profileData?.booyahDailyUsed ?? 0}
-            dailyLimit={profileData?.booyahDailyLimit ?? 3}
-            subscriptionStatus={subscriptionStatus}
-            welcomeBooyahCredits={profileData?.welcomeBooyahCredits ?? 0}
-            onVictoryRecorded={fetchProfile}
-          />
+          <div className={!canUseBooyah ? "relative" : ""}>
+            {!canUseBooyah && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center pt-10 bg-background/50 backdrop-blur-[2px] rounded-xl">
+                <div className="text-center space-y-4 p-6 max-w-sm mx-auto">
+                  <div className="h-14 w-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                    <Lock className="h-7 w-7 text-primary" />
+                  </div>
+                  <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Descubra seu score de movimentação, gelo, rotação e potencial geral.
+                  </p>
+                  <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
+                    <Crown className="h-4 w-4 mr-2" /> Assinar PRO
+                  </Link>
+                </div>
+              </div>
+            )}
+            <div className={!canUseBooyah ? "blur-sm pointer-events-none select-none" : ""}>
+              <BooyahTab
+                victories={profileData?.booyahVictories ?? []}
+                stats={profileData?.booyahStats ?? { total: 0, solo: 0, squad: 0, total_kills: 0, avg_kills: 0 }}
+                dailyUsed={profileData?.booyahDailyUsed ?? 0}
+                dailyLimit={profileData?.booyahDailyLimit ?? 3}
+                subscriptionStatus={subscriptionStatus}
+                welcomeBooyahCredits={profileData?.welcomeBooyahCredits ?? 0}
+                onVictoryRecorded={fetchProfile}
+              />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
