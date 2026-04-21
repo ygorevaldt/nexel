@@ -110,7 +110,7 @@ export default function WalletPage() {
                    <DialogTrigger className={buttonVariants({ className: "bg-white text-primary font-bold hover:bg-white/90 rounded-full h-11 px-8 shadow-lg" })}>
                      <Plus className="mr-2 h-4 w-4" /> Depositar PIX
                    </DialogTrigger>
-                   <DialogContent className="bg-card border-border/60">
+                   <DialogContent className="sm:max-w-3xl w-full max-h-[88vh] overflow-y-auto bg-card border-border/60">
                      <DialogHeader>
                        <DialogTitle>Depositar via PIX</DialogTitle>
                        <DialogDescription>Valor simulado — nenhuma cobrança real é feita.</DialogDescription>
@@ -128,7 +128,7 @@ export default function WalletPage() {
                    <DialogTrigger className={buttonVariants({ variant: "ghost", className: "text-white border border-white/20 hover:bg-white/10 rounded-full h-11 px-8" })}>
                      <Download className="mr-2 h-4 w-4" /> Sacar Funds
                    </DialogTrigger>
-                   <DialogContent className="bg-card border-border/60">
+                   <DialogContent className="sm:max-w-3xl w-full max-h-[88vh] overflow-y-auto bg-card border-border/60">
                      <DialogHeader>
                        <DialogTitle>Sacar Saldo</DialogTitle>
                        <DialogDescription>Saldo disponível: R$ {balance.toFixed(2)}</DialogDescription>

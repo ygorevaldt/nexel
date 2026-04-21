@@ -125,7 +125,8 @@ export async function GET(req: NextRequest) {
     const avg_kills = total > 0 ? Math.round((total_kills / total) * 10) / 10 : 0;
 
     const subscriptionStatus = (session.user.subscriptionStatus ?? 'FREE') as keyof typeof BOOYAH_LIMITS;
-    const dailyLimit = BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE;
+    const isAdm = session.user.systemRole === 'ADM';
+    const dailyLimit = isAdm ? Infinity : (BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE);
 
     const { dailyCount } = await getBooyahDailyState(String(profile._id));
 
@@ -191,10 +192,11 @@ export async function POST(req: NextRequest) {
     }
 
     const subscriptionStatus = (session.user.subscriptionStatus ?? 'FREE') as keyof typeof BOOYAH_LIMITS;
+    const isAdm = session.user.systemRole === 'ADM';
 
     // Welcome credits bypass daily limits — consume atomically before analysis
     let usingWelcomeCredit = false;
-    if (subscriptionStatus === 'FREE') {
+    if (!isAdm && subscriptionStatus === 'FREE') {
       const user = await findUserById(session.user.id);
       const welcomeCredits = user?.welcome_booyah_credits ?? 0;
       if (welcomeCredits > 0) {
@@ -205,17 +207,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (subscriptionStatus === 'FREE' && !usingWelcomeCredit) {
+    if (!isAdm && subscriptionStatus === 'FREE' && !usingWelcomeCredit) {
       return NextResponse.json(
         { error: 'Seus créditos gratuitos de Booyah acabaram. Assine o PRO para continuar.', requiresUpgrade: true },
         { status: 403 }
       );
     }
 
-    const dailyLimit = BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE;
+    const dailyLimit = isAdm ? Infinity : (BOOYAH_LIMITS[subscriptionStatus] ?? BOOYAH_LIMITS.FREE);
     const { dailyCount } = await getBooyahDailyState(profileId);
 
-    if (!usingWelcomeCredit) {
+    if (!isAdm && !usingWelcomeCredit) {
       if (dailyCount >= dailyLimit) {
         return NextResponse.json(
           {
@@ -262,7 +264,8 @@ export async function POST(req: NextRequest) {
       fraud_reason: string;
     };
 
-    const usedAfter = usingWelcomeCredit ? dailyCount : dailyCount + 1;
+    const usedAfter = (isAdm || usingWelcomeCredit) ? dailyCount : dailyCount + 1;
+    const dailyLimitDisplay = isAdm ? null : dailyLimit;
 
     if (result.confidence < CONFIDENCE_THRESHOLD) {
       return NextResponse.json({
@@ -270,7 +273,7 @@ export async function POST(req: NextRequest) {
         result: 'low_confidence',
         message: 'Não foi possível analisar o print com confiança suficiente. Envie uma imagem mais nítida.',
         dailyUsed: usedAfter,
-        dailyLimit,
+        dailyLimit: dailyLimitDisplay,
       }, { status: 422 });
     }
 
@@ -280,7 +283,7 @@ export async function POST(req: NextRequest) {
         result: 'invalid_print',
         message: 'O print enviado não parece ser uma tela de resultados do Free Fire.',
         dailyUsed: usedAfter,
-        dailyLimit,
+        dailyLimit: dailyLimitDisplay,
       }, { status: 422 });
     }
 
@@ -290,7 +293,7 @@ export async function POST(req: NextRequest) {
         result: 'fraud',
         message: `Print rejeitado: sinais de manipulação detectados. ${result.fraud_reason}`.trim(),
         dailyUsed: usedAfter,
-        dailyLimit,
+        dailyLimit: dailyLimitDisplay,
       }, { status: 422 });
     }
 
@@ -300,7 +303,7 @@ export async function POST(req: NextRequest) {
         result: 'not_ranked',
         message: 'Apenas partidas ranqueadas são aceitas.',
         dailyUsed: usedAfter,
-        dailyLimit,
+        dailyLimit: dailyLimitDisplay,
       }, { status: 422 });
     }
 
@@ -310,7 +313,7 @@ export async function POST(req: NextRequest) {
         result: 'not_victory',
         message: 'O print não mostra uma vitória (BOOYAH). Apenas vitórias são registradas.',
         dailyUsed: usedAfter,
-        dailyLimit,
+        dailyLimit: dailyLimitDisplay,
       }, { status: 422 });
     }
 
@@ -333,7 +336,7 @@ export async function POST(req: NextRequest) {
         kills: result.kills ?? 0,
       },
       dailyUsed: usedAfter,
-      dailyLimit,
+      dailyLimit: dailyLimitDisplay,
     }, { status: 201 });
   } catch (error) {
     console.error('[POST /api/me/booyah]', error);

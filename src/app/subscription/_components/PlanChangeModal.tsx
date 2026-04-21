@@ -135,7 +135,7 @@ export function PlanChangeModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-3xl w-full max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             <Icon className={`h-5 w-5 shrink-0 ${config.iconClass}`} />
