@@ -245,8 +245,8 @@ export default function DashboardPage() {
     setStatusMessage("Iniciando processamento...");
 
     try {
-      const res = await fetch("/api/analyze", { 
-        method: "POST", 
+      const res = await fetch("/api/analyze", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ youtubeUrl })
       });
@@ -288,15 +288,15 @@ export default function DashboardPage() {
           const res = await fetch(`/api/analyze/${pollingAnalysisId}/status`);
           if (res.ok) {
             const data = await res.json();
-            
+
             if (data.status === "PROCESSING" || data.status === "PENDING") {
-               const messages = [
-                 "Extraindo táticas da partida...", 
-                 "Analisando movimentação e gelo...", 
-                 "Avaliando uso de recursos...",
-                 "Gerando relatório do recrutador..."
-               ];
-               setStatusMessage(messages[Math.floor(Math.random() * messages.length)]);
+              const messages = [
+                "Extraindo táticas da partida...",
+                "Analisando movimentação e gelo...",
+                "Avaliando uso de recursos...",
+                "Gerando relatório de performance..."
+              ];
+              setStatusMessage(messages[Math.floor(Math.random() * messages.length)]);
             } else if (data.status === "COMPLETED") {
               clearInterval(interval);
               setPollingAnalysisId(null);
@@ -602,7 +602,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground mb-4 max-w-[16rem]">
                         Cole o link de uma partida no YouTube (até 10 min) para receber um raio-x completo do Coach IA.
                       </p>
-                      
+
                       {!isScout && (
                         <p className={`text-xs mb-4 font-medium ${(!isPro && welcomeAnalysisCredits === 0) || (isPro && dailyRemaining === 0)
                           ? "text-red-400"
@@ -617,7 +617,7 @@ export default function DashboardPage() {
                               : `${welcomeAnalysisCredits} crédito${welcomeAnalysisCredits !== 1 ? "s" : ""} gratuito${welcomeAnalysisCredits !== 1 ? "s" : ""} disponível${welcomeAnalysisCredits !== 1 ? "is" : ""}`}
                         </p>
                       )}
-                      
+
                       <div className="flex w-full max-w-sm flex-col gap-2">
                         <input
                           type="url"
