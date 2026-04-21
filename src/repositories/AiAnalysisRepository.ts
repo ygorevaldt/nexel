@@ -70,6 +70,7 @@ export async function createAnalysis(data: {
   content_hash?: string;
   token_usage?: IAiAnalysis['token_usage'];
   video_url?: string;
+  youtube_url?: string;
 }): Promise<IAiAnalysis> {
   await dbConnect();
   return AiAnalysis.create(data);

@@ -9,11 +9,10 @@ import { countTodayAnalyses, createAnalysis, updateAnalysisData, findByYoutubeUr
 import { addAiScoreToHistory } from "@/repositories/ProfileRepository";
 import { IAiAnalysisData } from "@/models/AiAnalysis";
 import dbConnect from "@/lib/db";
-import { AiAnalysis } from "@/models/AiAnalysis";
 
 const DAILY_PRO_LIMIT = 5;
 
-const ai = new GoogleGenAI({});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // ─── Gemini Structured Output Schema ───────────────────────────────────────────
 const analysisSchema: Schema = {
@@ -325,8 +324,7 @@ export async function POST(req: NextRequest) {
 
     // ─── Create DB Record ─────────────────────────────────────────────────────
     // Salva imediatamente como PROCESSING
-    await dbConnect();
-    const newAnalysis = new AiAnalysis({
+    const newAnalysis = await createAnalysis({
       profile_id: profileId,
       youtube_url: youtubeUrl,
       status: "PROCESSING",
@@ -337,7 +335,6 @@ export async function POST(req: NextRequest) {
         cache_hit: false,
       }
     });
-    await newAnalysis.save();
 
     // ─── Dispatch Background Job ──────────────────────────────────────────────
     waitUntil(
