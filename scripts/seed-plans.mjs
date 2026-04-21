@@ -78,7 +78,7 @@ async function seedPlans() {
             isActive: planData.isActive,
           },
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       
       console.log(`Plano ${plan.planId} atualizado com sucesso! Preço: R$ ${(plan.priceMonthlyCents / 100).toFixed(2).replace('.', ',')}`);

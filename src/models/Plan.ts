@@ -25,7 +25,6 @@ const PlanSchema: Schema<IPlan> = new Schema(
   { timestamps: true }
 );
 
-PlanSchema.index({ planId: 1 });
 
 export const Plan: Model<IPlan> =
   mongoose.models.Plan || mongoose.model<IPlan>("Plan", PlanSchema);
