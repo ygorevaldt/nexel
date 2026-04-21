@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import ytdl from "ytdl-core";
+import ytdl from "@distube/ytdl-core";
 import { auth } from "@/lib/auth";
 import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserRepository";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
