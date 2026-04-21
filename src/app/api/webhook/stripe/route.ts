@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { findUserById, findUserByStripeCustomerId, updateSubscription, cancelSubscription } from '@/repositories/UserRepository';
 import { createTransaction } from '@/repositories/TransactionRepository';
+import { findAllActivePlans } from '@/repositories/PlanRepository';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -77,10 +78,9 @@ export async function POST(req: NextRequest) {
         const customerId = subscription.customer as string;
         const priceId = subscription.items.data[0]?.price.id;
 
-        const planId =
-          priceId === process.env.STRIPE_PRICE_SCOUT ? ('SCOUT' as const)
-          : priceId === process.env.STRIPE_PRICE_PRO  ? ('PRO' as const)
-          : null;
+        const plans = await findAllActivePlans();
+        const activePlan = plans.find(p => p.stripePriceId === priceId);
+        const planId = activePlan?.planId as 'PRO' | 'SCOUT' | undefined;
 
         if (!planId) {
           console.log(`[Stripe Webhook] subscription.updated: price desconhecido ${priceId}, ignorando`);
