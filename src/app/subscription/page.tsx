@@ -42,35 +42,6 @@ interface PendingAction {
   execute: () => Promise<void>;
 }
 
-export const AVAILABLE_PLANS: Plan[] = [
-  {
-    id: 'PRO',
-    name: 'Jogador Pro',
-    description: 'Análises de IA ilimitadas + histórico completo de evolução',
-    priceMonthly: 2990,
-    stripePriceId: null,
-    features: [
-      'Análises de gameplay ilimitadas',
-      'Histórico de evolução (AI Score)',
-      'Feedback de Performance',
-      'Perfil destacado no ranking',
-    ],
-  },
-  {
-    id: 'SCOUT',
-    name: 'Scout / Time',
-    description: 'Acesso a dados de contato + filtros avançados de busca de talentos',
-    priceMonthly: 9990,
-    stripePriceId: null,
-    features: [
-      'Tudo do Plano Pro',
-      'Acesso a dados de contato dos jogadores',
-      'Filtros avançados de busca de talentos',
-      'Exportar relatórios de jogadores',
-      'Badge verificado no perfil',
-    ],
-  },
-];
 
 const PLAN_ORDER: Record<string, number> = { FREE: 0, PRO: 1, SCOUT: 2 };
 
@@ -296,7 +267,14 @@ function SubscriptionContent() {
 
       {/* Plan Cards */}
       <div className="grid md:grid-cols-2 gap-4 md:gap-6 items-stretch">
-        {(data?.availablePlans && data.availablePlans.length > 0 ? data.availablePlans : AVAILABLE_PLANS).map((plan, idx) => {
+        {(!data?.availablePlans || data.availablePlans.length === 0) && !loading && (
+          <div className="col-span-full py-16 text-center border-2 border-dashed border-border/50 rounded-2xl flex flex-col items-center justify-center space-y-3">
+            <Crown className="h-10 w-10 text-muted-foreground/30" />
+            <p className="text-muted-foreground font-medium">Nenhum plano disponível no momento.</p>
+          </div>
+        )}
+
+        {(data?.availablePlans || []).map((plan, idx) => {
           const isCurrentPlan = currentStatus === plan.id;
           const planIcons = [BrainCircuit, Users];
           const PlanIcon = planIcons[idx] ?? Star;
