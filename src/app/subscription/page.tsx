@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback } from "react";
-import { Crown, CheckCircle, Star, BrainCircuit, Users, Zap, History, XCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Crown, CheckCircle, History, XCircle, Zap } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
@@ -10,15 +10,9 @@ import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PlanChangeModal, PlanConsentAction, PlanTier } from "./_components/PlanChangeModal";
+import { PlanCard, PlanCardPlan } from "@/components/PlanCard";
 
-interface Plan {
-  id: string;
-  name: string;
-  description: string;
-  priceMonthly: number;
-  stripePriceId: string | null;
-  features: string[];
-}
+type Plan = PlanCardPlan;
 
 interface SubscriptionData {
   subscriptionStatus: string;
@@ -283,113 +277,23 @@ function SubscriptionContent() {
           </div>
         )}
 
-        {(data?.availablePlans || []).map((plan, idx) => {
-          const isCurrentPlan = currentStatus === plan.id;
-          const planIcons = [BrainCircuit, Users];
-          const PlanIcon = planIcons[idx] ?? Star;
-
-          const planColors = [
-            {
-              gradient: "from-primary/20 via-primary/10 to-transparent",
-              border: isCurrentPlan ? "border-primary" : "border-border/50 hover:border-primary/50",
-              badge: "bg-primary/10 text-primary border-primary/20",
-              button: isCurrentPlan
-                ? "bg-muted text-muted-foreground cursor-default"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
-            },
-            {
-              gradient: "from-purple-500/20 via-purple-500/10 to-transparent",
-              border: isCurrentPlan ? "border-purple-500" : "border-border/50 hover:border-purple-500/50",
-              badge: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-              button: isCurrentPlan
-                ? "bg-muted text-muted-foreground cursor-default"
-                : "bg-purple-600 text-white hover:bg-purple-700",
-            },
-          ][idx] ?? {
-            gradient: "from-primary/20 to-transparent",
-            border: "border-border/50",
-            badge: "bg-primary/10 text-primary",
-            button: "bg-primary text-primary-foreground",
-          };
-
-          return (
-            <motion.div
-              key={plan.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="h-full"
-            >
-              <Card className={`relative overflow-hidden border-2 transition-all duration-300 h-full flex flex-col ${planColors.border}`}>
-                <div className={`absolute inset-0 bg-linear-to-b ${planColors.gradient} pointer-events-none`} />
-
-                <CardHeader className="relative">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase border rounded-full px-3 py-1 ${planColors.badge}`}>
-                      <PlanIcon className="h-3.5 w-3.5" />
-                      {plan.name}
-                    </div>
-                    {isCurrentPlan && (
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                        Plano Atual
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-2xl font-black">
-                    R$ {(plan.priceMonthly / 100).toFixed(2).replace(".", ",")}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">/mês</span>
-                  </CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                </CardHeader>
-
-                <CardContent className="relative space-y-6 flex flex-col flex-1">
-                  <ul className="space-y-2.5">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2.5 text-sm">
-                        <CheckCircle className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                        <span className="text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-auto space-y-2">
-                    <button
-                      onClick={() => handlePlanButtonClick(plan)}
-                      disabled={isCurrentPlan || checkingOut !== null}
-                      className={`w-full h-11 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${planColors.button}`}
-                    >
-                      {isCurrentPlan ? (
-                        <>
-                          <CheckCircle className="h-4 w-4" /> Plano Ativo
-                        </>
-                      ) : checkingOut === plan.id ? (
-                        <>
-                          <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                          Redirecionando...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-4 w-4" />
-                          {resolveAction(currentStatus, plan.id) === 'DOWNGRADE'
-                            ? `Fazer Downgrade para ${plan.name}`
-                            : plan.id === "SCOUT" && currentStatus === "PRO"
-                              ? "Fazer Upgrade para SCOUT"
-                              : `Assinar ${plan.name}`}
-                        </>
-                      )}
-                    </button>
-
-                    {!data?.availablePlans.find((p) => p.id === plan.id)?.stripePriceId && (
-                      <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-wider">
-                        Pagamentos via Stripe — em breve
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+        {(data?.availablePlans || []).map((plan, idx) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            index={idx}
+            currentStatus={currentStatus}
+            onAction={handlePlanButtonClick}
+            actionLabel={
+              resolveAction(currentStatus, plan.id) === "DOWNGRADE"
+                ? `Fazer Downgrade para ${plan.name}`
+                : plan.id === "SCOUT" && currentStatus === "PRO"
+                  ? "Fazer Upgrade para SCOUT"
+                  : `Assinar ${plan.name}`
+            }
+            loading={checkingOut === plan.id}
+          />
+        ))}
       </div>
 
       {/* Transaction History (Only visible if logged in) */}

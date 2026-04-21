@@ -3,32 +3,18 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { BrainCircuit, Trophy, Crown, Zap, Check } from "lucide-react";
+import { BrainCircuit, Trophy, Crown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import Link from "next/link";
 import { motion } from "framer-motion";
+import { PlanCard, PlanCardPlan } from "@/components/PlanCard";
 
 interface CreditsData {
   subscriptionStatus: string;
   welcome_analysis_credits: number;
   welcome_booyah_credits: number;
+  availablePlans: PlanCardPlan[];
 }
-
-const PRO_BENEFITS = [
-  "5 análises de gameplay por dia",
-  "Feedback de Performance",
-  "Histórico de evolução do score",
-  "Perfil destacado no ranking",
-];
-
-const SCOUT_BENEFITS = [
-  "Tudo do plano PRO",
-  "Acesso a contatos de todos os jogadores",
-  "Filtros avançados de busca de talentos",
-  "Badge verificado no perfil",
-];
 
 export default function CreditsPage() {
   const { data: session, status } = useSession();
@@ -53,7 +39,7 @@ export default function CreditsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="container max-w-3xl mx-auto py-10 px-4 space-y-4">
+      <div className="container max-w-7xl mx-auto py-10 px-4 md:px-8 space-y-4">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="h-28 rounded-2xl bg-muted/20 animate-pulse" />
         ))}
@@ -66,7 +52,7 @@ export default function CreditsPage() {
   const isPaid = credits?.subscriptionStatus === "PRO" || credits?.subscriptionStatus === "SCOUT";
 
   return (
-    <div className="container max-w-3xl mx-auto py-8 md:py-12 px-4 space-y-6">
+    <div className="container max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-8 space-y-6 md:space-y-8">
       <div className="space-y-1">
         <h1 className="text-3xl font-extrabold tracking-tight">Meus Créditos</h1>
         <p className="text-muted-foreground text-sm">
@@ -134,61 +120,19 @@ export default function CreditsPage() {
       </div>
 
       {/* Upgrade CTA — only shown for FREE users */}
-      {!isPaid && (
+      {!isPaid && (credits?.availablePlans?.length ?? 0) > 0 && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* PRO Plan */}
-            <Card className="relative overflow-hidden border-primary/30 bg-linear-to-br from-primary/5 to-transparent">
-              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-primary" />
-                  Plano PRO
-                </CardTitle>
-                <p className="text-2xl font-black">
-                  R$ 29,90<span className="text-sm font-normal text-muted-foreground">/mês</span>
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-2">
-                  {PRO_BENEFITS.map((b) => (
-                    <li key={b} className="flex items-center gap-2 text-sm">
-                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/subscription" className={buttonVariants({ className: "w-full rounded-full" })}>
-                  Assinar PRO
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* SCOUT Plan */}
-            <Card className="relative overflow-hidden border-border/30 bg-card/30">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-amber-400" />
-                  Plano SCOUT
-                </CardTitle>
-                <p className="text-2xl font-black">
-                  R$ 99,90<span className="text-sm font-normal text-muted-foreground">/mês</span>
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-2">
-                  {SCOUT_BENEFITS.map((b) => (
-                    <li key={b} className="flex items-center gap-2 text-sm">
-                      <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/subscription" className={buttonVariants({ variant: "outline", className: "w-full rounded-full" })}>
-                  Assinar SCOUT
-                </Link>
-              </CardContent>
-            </Card>
+          <div className="grid md:grid-cols-2 gap-4 md:gap-6 items-stretch">
+            {credits!.availablePlans.map((plan, idx) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                index={idx}
+                currentStatus={credits?.subscriptionStatus ?? "FREE"}
+                actionHref="/subscription"
+                actionLabel={`Assinar ${plan.name}`}
+              />
+            ))}
           </div>
         </motion.div>
       )}
