@@ -153,26 +153,44 @@ const GEMINI_MAX_RETRIES = 3;
 const GEMINI_RETRY_DELAY_MS = 3000;
 
 async function invokeGemini(youtubeUrl: string) {
+  const fullPrompt = `${ELITE_RECRUITER_PROMPT}\n\nAnalise o seguinte vídeo de gameplay e forneça sua avaliação completa como Coach IA, focado em desenvolver e motivar o jogador:\nVídeo do YouTube: ${youtubeUrl}`;
+
   for (let attempt = 1; attempt <= GEMINI_MAX_RETRIES; attempt++) {
     try {
-      return await ai.models.generateContent({
+      console.log(`[invokeGemini] Tentativa ${attempt} para URL: ${youtubeUrl}`);
+      
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [
-          ELITE_RECRUITER_PROMPT,
-          "Analise o seguinte vídeo de gameplay e forneça sua avaliação completa como Coach IA, focado em desenvolver e motivar o jogador:",
-          `Vídeo do YouTube: ${youtubeUrl}`
-        ],
+        contents: [fullPrompt],
         config: {
           responseMimeType: "application/json",
           responseSchema: analysisSchema,
           temperature: 0.2,
-        }
+        },
       });
-    } catch (err) {
-      const msg = (err as Error).message ?? "";
-      const isRetryable = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("529") || msg.includes("429");
+
+      if (!response.text) {
+        throw new Error("Gemini retornou uma resposta vazia.");
+      }
+
+      return response;
+    } catch (err: any) {
+      const msg = err.message ?? "";
+      console.error(`[invokeGemini] Erro na tentativa ${attempt}:`, msg);
+
+      const isRetryable = 
+        msg.includes("503") || 
+        msg.includes("UNAVAILABLE") || 
+        msg.includes("529") || 
+        msg.includes("429") ||
+        err.status === 429 ||
+        err.status >= 500;
+
       if (!isRetryable || attempt === GEMINI_MAX_RETRIES) throw err;
-      await new Promise((r) => setTimeout(r, GEMINI_RETRY_DELAY_MS * attempt));
+      
+      const delay = GEMINI_RETRY_DELAY_MS * attempt;
+      console.log(`[invokeGemini] Aguardando ${delay}ms para retry...`);
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw new Error("Gemini: retries esgotados");
@@ -186,17 +204,20 @@ async function processVideoAnalysis(
   isAdm: boolean,
   subscriptionStatus: string
 ) {
+  console.log(`[processVideoAnalysis] Iniciando análise ${analysisId}`);
   try {
     const response = await invokeGemini(youtubeUrl);
+    console.log(`[processVideoAnalysis] Resposta recebida para ${analysisId}`);
 
     if (!response.text) {
-      throw new Error("Gemini não retornou resposta");
+      throw new Error("Gemini não retornou texto na resposta.");
     }
 
     let analysisData: IAiAnalysisData;
     try {
       analysisData = JSON.parse(response.text) as IAiAnalysisData;
-    } catch {
+    } catch (parseErr) {
+      console.error(`[processVideoAnalysis] Erro ao parsear JSON para ${analysisId}:`, response.text);
       throw new Error("Resposta do Gemini não é um JSON válido");
     }
 
@@ -205,27 +226,34 @@ async function processVideoAnalysis(
       status: "COMPLETED",
       analysis_data: analysisData,
       token_usage: {
-        prompt_tokens: response.usageMetadata?.promptTokenCount ?? 0,
-        completion_tokens: response.usageMetadata?.candidatesTokenCount ?? 0,
-        total_tokens: response.usageMetadata?.totalTokenCount ?? 0,
+        prompt_tokens: (response as any).usageMetadata?.promptTokenCount ?? 0,
+        completion_tokens: (response as any).usageMetadata?.candidatesTokenCount ?? 0,
+        total_tokens: (response as any).usageMetadata?.totalTokenCount ?? 0,
         cache_hit: false,
       },
     });
+
+    console.log(`[processVideoAnalysis] Sucesso: análise ${analysisId} COMPLETED`);
 
     await addAiScoreToHistory(profileId, analysisData.overall_potential_score);
 
     if (!isAdm && subscriptionStatus === "FREE") {
       await consumeWelcomeAnalysisCredit(userId);
     }
-    
-    // Future: push notification could be triggered here.
   } catch (error) {
-    console.error("[processVideoAnalysis] Background error:", error);
-    const message = (error as Error).message ?? "Falha interna no processamento";
-    await updateAnalysisData(analysisId, {
-      status: "FAILED",
-      error_message: message,
-    });
+    const err = error as Error;
+    console.error(`[processVideoAnalysis] ERRO CRÍTICO no background (ID: ${analysisId}):`, err);
+    
+    const message = err.message ?? "Falha interna no processamento";
+    
+    try {
+      await updateAnalysisData(analysisId, {
+        status: "FAILED",
+        error_message: message,
+      });
+    } catch (dbErr) {
+      console.error(`[processVideoAnalysis] Erro ao salvar status FAILED no banco:`, dbErr);
+    }
   }
 }
 
