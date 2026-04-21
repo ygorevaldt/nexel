@@ -39,6 +39,7 @@ interface PendingAction {
   action: PlanConsentAction;
   fromPlan: PlanTier;
   toPlan: PlanTier;
+  toPlanPrice?: number;
   execute: () => Promise<void>;
 }
 
@@ -175,6 +176,7 @@ function SubscriptionContent() {
       action,
       fromPlan: currentStatus as PlanTier,
       toPlan: plan.id as PlanTier,
+      toPlanPrice: plan.priceMonthly,
       execute: () => executeCheckout(plan),
     });
   };
@@ -212,6 +214,7 @@ function SubscriptionContent() {
           action={pendingAction.action}
           fromPlan={pendingAction.fromPlan}
           toPlan={pendingAction.toPlan}
+          toPlanPrice={pendingAction.toPlanPrice}
           renewalDate={data?.subscriptionEndDate}
           onConfirm={pendingAction.execute}
         />

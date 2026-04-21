@@ -22,10 +22,7 @@ const PLAN_LABELS: Record<PlanTier, string> = {
   SCOUT: "Scout",
 };
 
-const PLAN_PRICES: Record<Exclude<PlanTier, "FREE">, string> = {
-  PRO: "R$ 29,90",
-  SCOUT: "R$ 99,90",
-};
+
 
 interface PlanChangeModalProps {
   open: boolean;
@@ -33,11 +30,12 @@ interface PlanChangeModalProps {
   action: PlanConsentAction;
   fromPlan: PlanTier;
   toPlan: PlanTier;
+  toPlanPrice?: number;
   renewalDate?: string | null;
   onConfirm: () => Promise<void>;
 }
 
-function getModalConfig(action: PlanConsentAction, fromPlan: PlanTier, toPlan: PlanTier) {
+function getModalConfig(action: PlanConsentAction, fromPlan: PlanTier, toPlan: PlanTier, targetPriceStr: string) {
   if (action === "CANCEL") {
     return {
       icon: XCircle,
@@ -64,7 +62,6 @@ function getModalConfig(action: PlanConsentAction, fromPlan: PlanTier, toPlan: P
     };
   }
 
-  const price = toPlan !== "FREE" ? PLAN_PRICES[toPlan] : "";
   const isSwitch = fromPlan !== "FREE";
 
   return {
@@ -72,10 +69,10 @@ function getModalConfig(action: PlanConsentAction, fromPlan: PlanTier, toPlan: P
     iconClass: "text-primary",
     title: `Assinar plano ${PLAN_LABELS[toPlan]}?`,
     description: isSwitch
-      ? `Seu plano ${PLAN_LABELS[fromPlan]} atual será substituído pelo ${PLAN_LABELS[toPlan]}. Para ativar o novo plano, você precisará pagar o valor integral de ${price}/mês.`
-      : `Para ativar o plano ${PLAN_LABELS[toPlan]}, você precisará realizar o pagamento do valor integral de ${price}/mês.`,
+      ? `Seu plano ${PLAN_LABELS[fromPlan]} atual será substituído pelo ${PLAN_LABELS[toPlan]}. Para ativar o novo plano, você precisará pagar o valor integral de ${targetPriceStr}/mês.`
+      : `Para ativar o plano ${PLAN_LABELS[toPlan]}, você precisará realizar o pagamento do valor integral de ${targetPriceStr}/mês.`,
     advisory: null,
-    consentLabel: `Entendo que precisarei realizar o pagamento de ${price}/mês para ativar o plano ${PLAN_LABELS[toPlan]}.`,
+    consentLabel: `Entendo que precisarei realizar o pagamento de ${targetPriceStr}/mês para ativar o plano ${PLAN_LABELS[toPlan]}.`,
     confirmLabel: `Prosseguir para pagamento`,
     confirmClass: "",
   };
@@ -87,13 +84,17 @@ export function PlanChangeModal({
   action,
   fromPlan,
   toPlan,
+  toPlanPrice,
   renewalDate,
   onConfirm,
 }: PlanChangeModalProps) {
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const config = getModalConfig(action, fromPlan, toPlan);
+  const formattedPrice = toPlanPrice 
+    ? `R$ ${(toPlanPrice / 100).toFixed(2).replace('.', ',')}` 
+    : "";
+  const config = getModalConfig(action, fromPlan, toPlan, formattedPrice);
   const Icon = config.icon;
 
   const formattedRenewal = renewalDate
