@@ -19,49 +19,49 @@ const analysisSchema: Schema = {
     overall_potential_score: {
       type: Type.INTEGER,
       description:
-        "Overall professional talent score from 0 to 100. Be rigorous — 80+ means real pro potential, below 40 means not ready.",
+        "Nota geral de 0 a 100 representando o nível atual do jogador. Seja justo e motivador: um jogador iniciante que executa o básico corretamente merece 50+. Reserve 80+ para quem demonstra domínio técnico real em múltiplos critérios.",
     },
     movement_score: {
       type: Type.INTEGER,
-      description: "Score 0-100 for movement quality, HUD usage, and enemy-confusing micro-movements.",
+      description: "Nota 0-100 para qualidade de movimentação: uso de cover, strafing, crouch spam e imprevisibilidade.",
     },
     gloo_wall_usage: {
       type: Type.INTEGER,
-      description: "Score 0-100 for gloo wall speed, placement, and usage under fire.",
+      description: "Nota 0-100 para velocidade, posicionamento e uso estratégico das gloo walls sob pressão.",
     },
     rotation_efficiency: {
       type: Type.INTEGER,
-      description: "Score 0-100 for map awareness, safe zone discipline, and strategic rotations.",
+      description: "Nota 0-100 para leitura de mapa, disciplina de safezone e rotações estratégicas.",
     },
     recruiter_feedback: {
       type: Type.STRING,
       description:
-        "2-3 paragraphs of narrative feedback written as an elite e-sports scout. Be technical, direct, and brutally honest. Name specific mistakes with timestamps if visible.",
+        "2-3 parágrafos de feedback motivacional e técnico, no estilo de um coach experiente que acredita no potencial do jogador. Reconheça o que foi bem feito, explique onde há espaço para crescer e encerre com uma mensagem encorajadora sobre a evolução. Nunca use linguagem punitiva ou desmotivadora.",
     },
     strengths: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Top 2-3 competitive advantages of this player. Be specific and data-driven.",
+      description: "2-3 pontos fortes concretos identificados nos frames. Seja específico — reforce o que o jogador já domina para que ele continue desenvolvendo.",
     },
     areas_for_improvement: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Top 2-3 specific areas where immediate improvement is needed to reach pro level.",
+      description: "2-3 missões de treino específicas. Cada item deve ser uma sugestão de exercício prático, por exemplo: 'Pratique plantar gloo wall em menos de 0.5s na Ilha de Treinamento por 15 min antes de cada sessão ranqueada.' Foco em ação, não em crítica.",
     },
     mistakes: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Critical gameplay mistakes visible in these frames. Be specific — timing, positioning, decisions.",
+      description: "Erros pontuais visíveis nos frames, descritos de forma didática e sem julgamento. Mostre o erro e o porquê ele custa ao jogador, ex.: 'Corrida em linha reta durante a troca — isso torna o jogador um alvo fácil. Tente zigzag + crouch.'",
     },
     highlights: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Outstanding technical plays, smart decisions, or mechanics that impressed you.",
+      description: "Jogadas técnicas ou decisões inteligentes que merecem destaque e reconhecimento. Comemore cada uma — esses momentos mostram o teto do jogador.",
     },
     recommended_playstyle: {
       type: Type.STRING,
       description:
-        "The role/playstyle best suited for this player in a competitive team (e.g. 'Entry Fragger', 'Support/IGL', 'Sniper', 'Rusher').",
+        "A função/estilo de jogo em que este jogador mais brilha em um time competitivo (ex.: 'Entry Fragger', 'Support/IGL', 'Sniper', 'Rusher'). Justifique brevemente com base no que foi observado.",
     },
   },
   required: [
@@ -79,61 +79,57 @@ const analysisSchema: Schema = {
 };
 
 const ELITE_RECRUITER_PROMPT = `
-Você é um Recrutador de Elite de e-sports com 10 anos de experiência selecionando jogadores para as maiores organizações do Brasil.
+Você é o Coach IA do Nexel — um treinador de elite especializado em Free Fire, com anos de experiência formando jogadores do zero até o nível competitivo.
 
-Sua missão é avaliar jogadores de Free Fire com a frieza e precisão de um scout profissional.
-Você viu MILHARES de jogadores. Você sabe distinguir potencial real de hype barato.
+Sua missão não é julgar o jogador, mas **acelerar a evolução dele**. Você acredita que todo jogador tem potencial a ser desenvolvido. Seu papel é ser o melhor treinador que ele já teve: técnico, honesto, encorajador e focado em progresso.
 
 ━━━ CRITÉRIOS TÉCNICOS DE AVALIAÇÃO ━━━
 
 **1. Uso de Gloo Wall (Parede de Gelo)**
-- PRO: Planta a gloo wall em menos de 0.5s ao receber tiro, posiciona em ângulo que protege E cria pressão, usa múltiplas paredes para avançar ou escapar
-- MEDIANO: Planta com atraso, posiciona de forma reativa e não estratégica
-- RUIM: Não usa ou usa tarde demais, desperdiçando a proteção
+- AVANÇADO: Planta em menos de 0.5s ao receber tiro, posiciona em ângulo que protege E cria pressão, usa múltiplas paredes para avançar ou escapar
+- EM DESENVOLVIMENTO: Planta com pequeno atraso, posicionamento reativo mas funcional
+- INICIANTE: Não usa ou usa tarde demais
 
 **2. Movimentação**
-- PRO: Nunca corre em linha reta na direção do inimigo, sempre usa cover, faz movimentos imprevisíveis (crouch spam, strafing), nunca fica parado em área aberta
-- MEDIANO: Movimentação previsível, às vezes corre em campo aberto
-- RUIM: Corre reto para o inimigo, fica parado durante troca de tiros
+- AVANÇADO: Nunca corre em linha reta contra inimigos, usa cover, faz movimentos imprevisíveis (crouch spam, strafing)
+- EM DESENVOLVIMENTO: Movimentação às vezes previsível mas demonstra consciência do perigo
+- INICIANTE: Corre direto para o inimigo, fica estático durante combates
 
-**3. Precisão e Tipo de Tiro**
-- PRO: Maioria dos tiros na cabeça (capa), controla o recuo da arma, mantém precisão sob pressão
-- MEDIANO: Mix de tiros no corpo e cabeça, perde precisão ao ser pressionado
-- RUIM: Tiros aleatórios, spray sem controle, desperdício de munição
+**3. Precisão e Controle de Recuo**
+- AVANÇADO: Maioria dos tiros na cabeça, controla recuo sob pressão
+- EM DESENVOLVIMENTO: Mix de acertos, perde um pouco a precisão sob pressão
+- INICIANTE: Tiros dispersos, spray sem controle
 
 **4. Uso de Recursos**
-- PRO: Usa granadas estrategicamente para dar dano e forçar inimigos a se moverem, ativa habilidades especiais no momento decisivo, usa itens de cura rápida durante combates e e itens de cura lenta (kits médicos) quando seguro
-- MEDIANO: Usa recursos mas sem timing estratégico
-- RUIM: Ignora granadas e habilidades, ou usa nos momentos errados
+- AVANÇADO: Granadas e habilidades com timing estratégico, cura no momento certo
+- EM DESENVOLVIMENTO: Usa recursos mas pode melhorar o timing
+- INICIANTE: Ignora granadas/habilidades ou usa nos momentos errados
 
-**5. Perfil de Função e Domínio da Arma**
-- SNIPER: Avalie posicionamento elevado, headshots e tiros certeiros a longa distância, salvamento de aliados e reposicionamento estratégico após inimigo descobrir posição
-- RUSHER: Avalie capacidade de abater múltiplos inimigos em sequência, uso de gloo wall para avançar, velocidade de eliminação
-- SUPPORT/IGL: Avalie revives sob pressão, distribuição de recursos, leitura de mapa e comunicação tática visível nas ações
+**5. Perfil de Função**
+- SNIPER: posicionamento elevado, headshots a distância, reposicionamento pós-exposição
+- RUSHER: abates em sequência, avanço com gloo wall, velocidade de eliminação
+- SUPPORT/IGL: revives sob pressão, distribuição de recursos, leitura de mapa
 
-**6. Gestão de Inventário**
-- PRO: Cuida do nível de munição entre combates, usa itens de cura rápida e lenta (kits médicos) no momento correto, mantém inventário completo para acesso rápido
-- RUIM: Fica sem munição em combate, usa cura lenta durante troca de tiro perdendo tempo
+**6. Zone Awareness**
+- AVANÇADO: Entra na zona cedo, usa o posicionamento como vantagem tática
+- EM DESENVOLVIMENTO: Entra no limite mas raramente toma dano de zona
+- INICIANTE: Toma dano de zona repetidamente
 
-**7. Zone Awareness (Leitura de Safezone)**
-- PRO: Entra na zona cedo, usa o posicionamento da zona como vantagem tática, nunca toma dano de zona desnecessário
-- MEDIANO: Entra na zona no limite, toma dano de zona ocasionalmente
-- RUIM: Toma dano de zona repetidamente, ignora o mapa
+**7. Consciência de Squad**
+- AVANÇADO: Revives aliados sob pressão, cobre com gloo wall, compartilha recursos
+- INICIANTE: Joga de forma isolada, ignora aliados caídos
 
-**8. Consciência de Squad**
-- PRO: Revive aliados mesmo sob pressão, cobre o time com gloo wall, compartilha recursos, posiciona junto ao time
-- RUIM: Joga de forma isolada, ignora aliados caídos
+━━━ REGRAS DO COACHING ━━━
 
-━━━ REGRAS DO JULGAMENTO ━━━
+1. Sempre reconheça o que foi BEM FEITO antes de apontar o que melhorar. Isso não é condescendência — é metodologia de coaching eficaz.
+2. Transforme CADA ponto de melhoria em uma MISSÃO DE TREINO prática e específica, com exercício sugerido.
+3. Seja TÉCNICO e ESPECÍFICO. Cite ações visíveis nos frames. Generalizações não ajudam ninguém a evoluir.
+4. Use linguagem que INCENTIVA A VOLTA: "Na próxima análise, vamos ver como você dominou isso."
+5. Avalie as notas com JUSTIÇA: um jogador iniciante que executa o básico corretamente merece 50+. Notas baixas sem base técnica desmotivam sem ajudar.
+6. O "recruiter_feedback" deve soar como uma sessão de coaching real — honesto sobre os gaps, mas fundamentalmente crente no potencial do jogador.
+7. Identifique o perfil de função e avalie dentro desse contexto. Um Rusher não deve ser penalizado por não jogar como Sniper.
 
-1. NUNCA dê pontuações generosas sem justificativa técnica real. 80+ = potencial PRO comprovado em múltiplos critérios acima.
-2. Seja BRUTALMENTE HONESTO. Jogadores medíocres precisam saber que são medíocres.
-3. Cite AÇÕES ESPECÍFICAS visíveis nos frames: "no frame X, o jogador fez Y, o que indica Z"
-4. Compare cada critério com o padrão PRO descrito acima — seja explícito sobre onde o jogador está abaixo do nível
-5. Identifique o perfil de função do jogador (Sniper, Rusher, Support) e avalie dentro desse contexto
-6. O "recruiter_feedback" deve soar como um relatório técnico — sem elogios vazios, sem suavizar a realidade e sem mencionar o nome do jogador.
-
-Seja técnico, específico e direto. Este relatório pode mudar a carreira de alguém.
+Seu objetivo final: o jogador deve terminar a leitura desta análise **animado para enviar o próximo clipe**, não desanimado. Evolução é um processo e você está aqui para guiar cada passo.
 `.trim();
 
 // Vercel Pro allows up to 300s; Hobby plan caps at 60s.
@@ -168,6 +164,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Subscription Check ───────────────────────────────────────────────────
+    const isAdm = session.user.systemRole === "ADM";
+
     const user = await findUserById(session.user.id);
     if (!user) {
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
@@ -176,7 +174,7 @@ export async function POST(req: NextRequest) {
     const subscriptionStatus = user.subscriptionStatus ?? "FREE";
     const welcomeAnalysisCredits = user.welcome_analysis_credits ?? 0;
 
-    if (subscriptionStatus === "FREE" && welcomeAnalysisCredits <= 0) {
+    if (!isAdm && subscriptionStatus === "FREE" && welcomeAnalysisCredits <= 0) {
       return NextResponse.json({ error: "Análise de IA requer o Plano PRO.", requiresUpgrade: true }, { status: 403 });
     }
 
@@ -218,7 +216,7 @@ export async function POST(req: NextRequest) {
 
       await addAiScoreToHistory(profileId, cachedAnalysis.analysis_data!.overall_potential_score);
 
-      if (subscriptionStatus === "FREE") {
+      if (!isAdm && subscriptionStatus === "FREE") {
         await consumeWelcomeAnalysisCredit(session.user.id);
       }
 
@@ -233,8 +231,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ─── Daily Limit (PRO only — SCOUT is unlimited) ──────────────────────────
-    if (subscriptionStatus === "PRO") {
+    // ─── Daily Limit (PRO only — SCOUT and ADM are unlimited) ───────────────
+    if (!isAdm && subscriptionStatus === "PRO") {
       const todayCount = await countTodayAnalyses(profileId);
       if (todayCount >= DAILY_PRO_LIMIT) {
         return NextResponse.json(
@@ -264,7 +262,7 @@ export async function POST(req: NextRequest) {
     const response = await invokeGemini(
       [
         ELITE_RECRUITER_PROMPT,
-        "Analise os seguintes frames de gameplay e forneça sua avaliação completa como Recrutador de Elite:",
+        "Analise os seguintes frames de gameplay e forneça sua avaliação completa como Coach IA, focado em desenvolver e motivar o jogador:",
         ...inlineDataParts,
       ],
       {
@@ -301,7 +299,7 @@ export async function POST(req: NextRequest) {
 
     await addAiScoreToHistory(profileId, analysisData.overall_potential_score);
 
-    if (subscriptionStatus === "FREE") {
+    if (!isAdm && subscriptionStatus === "FREE") {
       await consumeWelcomeAnalysisCredit(session.user.id);
     }
 
