@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["framer-motion", "lucide-react", "@google/genai"],
+    // Força a Vercel a empacotar essas bibliotecas na Serverless Function
+    serverComponentsExternalPackages: ["cheerio", "ytdl-core"],
   },
   async headers() {
     return [
