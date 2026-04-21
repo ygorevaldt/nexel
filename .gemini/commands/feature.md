@@ -16,11 +16,11 @@ Nunca implemente diretamente na master.
 ---
 
 Antes de escrever qualquer código, leia e siga:
-- `@.claude/rules/architecture.md` — estrutura de módulos e responsabilidades
-- `@.claude/rules/api-conventions.md` — padrão das API routes
-- `@.claude/rules/code-style.md` — TypeScript e clean code
-- `@.claude/rules/frontend-patterns.md` — componentes React e Next.js
-- `@.claude/rules/ai-usage.md` — se a feature envolver Gemini
+- `@.gemini/rules/architecture.md` — estrutura de módulos e responsabilidades
+- `@.gemini/rules/api-conventions.md` — padrão das API routes
+- `@.gemini/rules/code-style.md` — TypeScript e clean code
+- `@.gemini/rules/frontend-patterns.md` — componentes React e Next.js
+- `@.gemini/rules/ai-usage.md` — se a feature envolver Gemini
 
 **Checklist obrigatório antes de finalizar:**
 - [ ] API routes são finas — delegam para Repositories
@@ -33,5 +33,6 @@ Antes de escrever qualquer código, leia e siga:
 - [ ] Estados de loading e empty em componentes que buscam dados
 - [ ] Sem comentários explicando o óbvio
 - [ ] `README.md` atualizado refletindo a feature (seções afetadas: funcionalidades, stack, rotas de API)
+- [ ] `GEMINI.md` atualizado na seção 'Estrutura de Pastas' caso novas rotas, arquivos ou pastas estruturais tenham sido criados.
 
-Implemente de forma progressiva e confirme cada arquivo antes de avançar para o próximo.
+Implemente de forma progressiva e confirme cada arquivo antes de avançar para o próximo. Use todo seu contexto disponível para evitar quebrar componentes/rotas associados!

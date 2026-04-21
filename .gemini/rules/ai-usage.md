@@ -3,13 +3,13 @@
 ## Modelo padrão: `gemini-2.5-flash`
 
 Sempre usar `gemini-2.5-flash` salvo justificativa explícita documentada no código.
-Nunca usar modelos Pro (ex: gemini-2.5-pro) sem aprovação — o custo é 5-10x maior.
+Nunca usar modelos Pro (ex: gemini-1.5-pro / 2.5-pro) sem aprovação — o custo e latência são maiores. O Flash em sua nova versão possui raciocínio aprimorado e processamento extremamente rápido, suficiente para a maior parte das tarefas de análise de gameplay em imagens.
 
 ---
 
 ## Structured Output é obrigatório
 
-Toda chamada ao Gemini deve usar Structured Output com schema explícito.
+Toda chamada ao Gemini deve usar Structured Output com schema explícito (usando Zod convertido ou passando o Schema Type do `@google/genai`).
 Nunca parsear texto livre — isso causa alucinações e erros de runtime.
 
 ```typescript

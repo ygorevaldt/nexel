@@ -1,4 +1,4 @@
-# Nexel — Claude Code Context
+# Nexel — Gemini Code Context
 
 Nexel é uma plataforma SaaS de e-sports para jogadores de Free Fire.
 Jogadores enviam gameplays, recebem análise de IA, competem em desafios e constroem um perfil para serem descobertos por scouts e organizações.
@@ -84,7 +84,7 @@ npx tsc --noEmit   # Typecheck sem gerar arquivos
 
 ## Regras Arquiteturais — OBRIGATÓRIAS
 
-Leia `@.claude/rules/architecture.md` antes de criar ou modificar qualquer arquivo backend.
+Leia `@.gemini/rules/architecture.md` antes de criar ou modificar qualquer arquivo backend. Lembre-se, como você está operando dentro do ecossistema Google (Gemini 1.5 Pro / 2.5 Flash), aproveite a sua massiva capacidade de janela de contexto para analisar todos os arquivos interconectados indicados pelo usuário.
 
 ### Resumo das regras inegociáveis:
 
@@ -110,7 +110,7 @@ Leia `@.claude/rules/architecture.md` antes de criar ou modificar qualquer arqui
 
 ## Padrões de Código
 
-Leia `@.claude/rules/code-style.md` para as convenções completas de TypeScript e React.
+Leia `@.gemini/rules/code-style.md` para as convenções completas de TypeScript e React.
 
 ### Resumo:
 - TypeScript strict — sem `any` implícito
@@ -118,7 +118,7 @@ Leia `@.claude/rules/code-style.md` para as convenções completas de TypeScript
 - Sem valores mágicos — use constantes nomeadas
 - Sem comentários explicando o óbvio — o código deve ser autoexplicativo
 - Funções com responsabilidade única (SRP)
-- Componentes React com props tipadas via `interface`, nunca `type` inline no JSunto
+- Componentes React com props tipadas via `interface`, nunca `type` inline no JSX
 
 ---
 
@@ -136,8 +136,8 @@ A lógica de permissão está em `src/app/api/profile/[id]/route.ts` — siga o 
 
 ## Referências Detalhadas
 
-- Convenções de API: `@.claude/rules/api-conventions.md`
-- Padrões de código: `@.claude/rules/code-style.md`
-- Arquitetura modular: `@.claude/rules/architecture.md`
-- Padrões de componentes React: `@.claude/rules/frontend-patterns.md`
-- Uso da IA Gemini: `@.claude/rules/ai-usage.md`
+- Convenções de API: `@.gemini/rules/api-conventions.md`
+- Padrões de código: `@.gemini/rules/code-style.md`
+- Arquitetura modular: `@.gemini/rules/architecture.md`
+- Padrões de componentes React: `@.gemini/rules/frontend-patterns.md`
+- Uso da IA Gemini: `@.gemini/rules/ai-usage.md`

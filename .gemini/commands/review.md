@@ -8,8 +8,8 @@ Faça uma revisão completa das mudanças que acabei de fazer. Analise:
 
 4. **Clean Code:** Existe algum valor mágico que deveria ser uma constante? Alguma função fazendo mais de uma coisa? Algum comentário desnecessário explicando o óbvio?
 
-5. **Padrões do projeto:** O código segue os padrões definidos em `@.claude/rules/`? O formato de resposta das APIs está consistente?
+5. **Padrões do projeto:** O código segue os padrões definidos em `@.gemini/rules/`? O formato de resposta das APIs está consistente?
 
 Contexto das mudanças: $ARGUMENTS
 
-Seja direto. Liste o que está errado e o que está certo. Se tudo estiver ok, diga isso claramente.
+Seja direto. Liste o que está errado e o que está certo. Se tudo estiver ok, diga isso claramente. Aproveite seu amplo contexto lógico para identificar problemas conceituais profundos que fugiriam a uma análise estática simples.

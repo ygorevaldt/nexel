@@ -16,4 +16,4 @@ Verifique especificamente:
 
 6. **Rate limiting:** Features com custo (análises Gemini, envios de Booyah) têm proteção de limite diário verificada server-side?
 
-Liste vulnerabilidades encontradas com severidade (Alta/Média/Baixa) e como corrigir cada uma.
+Liste vulnerabilidades encontradas com severidade (Alta/Média/Baixa) e como corrigir cada uma. Faça uso de seu vasto contexto para rastrear fluxos de entrada em vários arquivos simultaneamente, validando se são higienizados da API Route até Repository.

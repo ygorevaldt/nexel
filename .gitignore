@@ -44,9 +44,8 @@ next-env.d.ts
 # feature specs (local planning files)
 /features
 
-# Claude Code local settings
-.claude/settings.local.json
-CLAUDE.local.md
+# Gemini Code local settings
+GEMINI.local.md
 
 
 # local seed profiles (can opt-in for committing if needed)

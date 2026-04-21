@@ -3,7 +3,7 @@ Analise e corrija o seguinte problema no Nexel:
 **Problema:** $ARGUMENTS
 
 **Processo:**
-1. Explique a causa raiz antes de tocar em qualquer código
+1. Explique a causa raiz antes de tocar em qualquer código, aproveitando sua janela de contexto para analisar componentes afetados indiretamente.
 2. Identifique qual arquivo(s) está causando o problema
 3. Proponha a correção e aguarde confirmação antes de aplicar
 4. Após aplicar, rode `npx tsc --noEmit` para garantir que não introduziu erros de tipo
@@ -12,4 +12,5 @@ Analise e corrija o seguinte problema no Nexel:
 **Restrições:**
 - Não refatore código que não está diretamente relacionado ao problema
 - Se a correção exigir mudança arquitetural maior, documente a dívida técnica em vez de fazer uma gambiarra
-- Siga os padrões de `@.claude/rules/code-style.md` na correção
+- Siga os padrões de `@.gemini/rules/code-style.md` na correção
+- Se a resolução do bug criar, renomear ou remover pastas/arquivos estruturais, atualize a seção 'Estrutura de Pastas' no arquivo `GEMINI.md`.
