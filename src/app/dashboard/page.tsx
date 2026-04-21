@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useSentinel } from "@/hooks/useSentinel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -131,6 +132,9 @@ export default function DashboardPage() {
   const [statusMessage, setStatusMessage] = useState("");
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [analysesPage, setAnalysesPage] = useState(1);
+  const [analysesHasMore, setAnalysesHasMore] = useState(false);
+  const [loadingMoreAnalyses, setLoadingMoreAnalyses] = useState(false);
 
   const userInitial = session?.user?.name?.charAt(0)?.toUpperCase() || "?";
 
@@ -180,6 +184,8 @@ export default function DashboardPage() {
         booyahDailyUsed: booyahJson.dailyUsed ?? 0,
         booyahDailyLimit: booyahJson.dailyLimit ?? 3,
       });
+      setAnalysesHasMore(analysesJson.hasMore ?? false);
+      setAnalysesPage(1);
     } catch {
       // silent
     } finally {
@@ -190,6 +196,31 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "authenticated") fetchProfile();
   }, [status, fetchProfile]);
+
+  const loadMoreAnalyses = useCallback(async () => {
+    if (loadingMoreAnalyses || !analysesHasMore) return;
+    setLoadingMoreAnalyses(true);
+    try {
+      const res = await fetch(`/api/me/analyses?page=${analysesPage + 1}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const incoming: AnalysisEntry[] = json.analyses ?? [];
+      setProfileData((prev) =>
+        prev ? { ...prev, analyses: [...prev.analyses, ...incoming] } : prev
+      );
+      setAnalysesHasMore(json.hasMore ?? false);
+      setAnalysesPage((p) => p + 1);
+    } catch {
+      // silent
+    } finally {
+      setLoadingMoreAnalyses(false);
+    }
+  }, [loadingMoreAnalyses, analysesHasMore, analysesPage]);
+
+  const analysesSentinelRef = useSentinel(
+    loadMoreAnalyses,
+    analysesHasMore && !loading && !loadingMoreAnalyses
+  );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -716,7 +747,7 @@ export default function DashboardPage() {
                             <DialogTrigger className="w-full mt-2 flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary transition-all font-medium">
                               <ChevronRight className="h-3.5 w-3.5" /> Ver detalhes
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-2xl! w-full max-h-[85vh] overflow-y-auto">
+                            <DialogContent className="sm:max-w-3xl w-full max-h-[88vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                   <BrainCircuit className="h-5 w-5 text-primary" />
@@ -839,6 +870,13 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+
+          <div ref={analysesSentinelRef} className="h-4" />
+          {loadingMoreAnalyses && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
         </TabsContent>
 
         {/* ─── Evolution Tab ─── */}

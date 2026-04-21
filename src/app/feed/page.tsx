@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,12 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Trophy, ArrowUpRight, Sliders, Lock, Crown, Star } from "lucide-react";
+import { Search, Trophy, ArrowUpRight, Sliders, Lock, Crown, Star, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useSentinel } from "@/hooks/useSentinel";
 
 interface PlayerProfile {
   id: string;
@@ -58,6 +59,9 @@ export default function FeedPage() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [profiles, setProfiles] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
   const subscriptionStatus: string =
@@ -71,33 +75,66 @@ export default function FeedPage() {
     }
   }, [status, router]);
 
-  const fetchProfiles = useCallback(async () => {
-    if (status !== "authenticated") return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (isScout && rank && rank !== "Todos") params.set("rank", rank);
-      if (isScout && minScore) params.set("minScore", minScore);
-      if (isScout && sortBy) params.set("sortBy", sortBy);
-      if (favoritesOnly) params.set("favoritesOnly", "true");
+  const buildParams = useCallback((pageNum: number) => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (isScout && rank && rank !== "Todos") params.set("rank", rank);
+    if (isScout && minScore) params.set("minScore", minScore);
+    if (isScout && sortBy) params.set("sortBy", sortBy);
+    if (favoritesOnly) params.set("favoritesOnly", "true");
+    params.set("page", String(pageNum));
+    return params;
+  }, [search, rank, minScore, sortBy, favoritesOnly, isScout]);
 
-      const res = await fetch(`/api/feed?${params.toString()}`);
+  const fetchProfiles = useCallback(async (pageNum: number, append: boolean) => {
+    if (status !== "authenticated") return;
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      const res = await fetch(`/api/feed?${buildParams(pageNum).toString()}`);
       const json = await res.json();
-      setProfiles(json.data ?? []);
+      const incoming: PlayerProfile[] = json.data ?? [];
+      setHasMore(json.hasMore ?? false);
+      setProfiles((prev) => append ? [...prev, ...incoming] : incoming);
+      setPage(pageNum);
     } catch {
-      setProfiles([]);
+      if (!append) setProfiles([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [search, rank, minScore, sortBy, favoritesOnly, status, isPro]);
+  }, [status, buildParams]);
 
+  // Reset and re-fetch when filters change
+  const filtersRef = useRef({ search, rank, minScore, sortBy, favoritesOnly });
   useEffect(() => {
-    const timer = setTimeout(() => fetchProfiles(), 300);
-    return () => clearTimeout(timer);
-  }, [fetchProfiles]);
+    const prev = filtersRef.current;
+    const changed =
+      prev.search !== search ||
+      prev.rank !== rank ||
+      prev.minScore !== minScore ||
+      prev.sortBy !== sortBy ||
+      prev.favoritesOnly !== favoritesOnly;
+    if (!changed) return;
+    filtersRef.current = { search, rank, minScore, sortBy, favoritesOnly };
 
-  const handleToggleFavorite = async (profileId: string, currentlyFavorited: boolean) => {
+    const timer = setTimeout(() => fetchProfiles(1, false), 300);
+    return () => clearTimeout(timer);
+  }, [search, rank, minScore, sortBy, favoritesOnly, fetchProfiles]);
+
+  // Initial load
+  useEffect(() => {
+    if (status === "authenticated") fetchProfiles(1, false);
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) fetchProfiles(page + 1, true);
+  }, [loadingMore, hasMore, page, fetchProfiles]);
+
+  const sentinelRef = useSentinel(loadMore, hasMore && !loading && !loadingMore);
+
+  const handleToggleFavorite = async (profileId: string) => {
     if (!session?.user?.id) return;
     setTogglingFavorite(profileId);
     try {
@@ -176,7 +213,6 @@ export default function FeedPage() {
 
       {/* Filters Bar */}
       <div className="flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm">
-        {/* Search — available to all */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -187,7 +223,6 @@ export default function FeedPage() {
           />
         </div>
 
-        {/* Rank Filter — SCOUT only */}
         <div className={`relative ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
           {!isScout && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
           <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")} disabled={!isScout}>
@@ -202,7 +237,6 @@ export default function FeedPage() {
           </Select>
         </div>
 
-        {/* Min Score Filter — SCOUT only */}
         <div className={`relative w-full md:w-44 ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
           {!isScout
             ? <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
@@ -220,7 +254,6 @@ export default function FeedPage() {
           />
         </div>
 
-        {/* Sort By — SCOUT only */}
         <div className={`relative ${!isScout ? "opacity-50 pointer-events-none" : ""}`}>
           {!isScout && <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "")} disabled={!isScout}>
@@ -237,7 +270,6 @@ export default function FeedPage() {
           </Select>
         </div>
 
-        {/* Favorites filter — all logged-in users */}
         <Button
           variant={favoritesOnly ? "default" : "outline"}
           size="sm"
@@ -258,12 +290,11 @@ export default function FeedPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ delay: idx * 0.05 }}
+              transition={{ delay: Math.min(idx * 0.05, 0.3) }}
               layout
             >
               <Card className="group relative overflow-hidden bg-card/40 border-border/50 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 backdrop-blur-sm">
 
-                {/* AI Score Badge — PRO/SCOUT only */}
                 <div className="absolute top-0 right-0 p-4">
                   <div className="flex flex-col items-end">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">
@@ -304,7 +335,6 @@ export default function FeedPage() {
                         <Lock className="h-2.5 w-2.5" /> Rank (PRO)
                       </span>
                     )}
-                    {/* Favorites count — visible to all */}
                     {player.favorites_count > 0 && (
                       <div className="flex items-center gap-1 text-[10px] text-yellow-400/80">
                         <Star className="h-2.5 w-2.5 fill-yellow-400/80" />
@@ -314,7 +344,6 @@ export default function FeedPage() {
                   </div>
                 </CardHeader>
 
-                {/* Stats — PRO/SCOUT only */}
                 {isPro ? (
                   <CardContent className="grid grid-cols-3 gap-2 py-3 text-center border-y border-border/30 bg-muted/10">
                     <div className="space-y-0.5">
@@ -341,7 +370,7 @@ export default function FeedPage() {
 
                 <CardFooter className="p-4 flex justify-between items-center group-hover:bg-primary/5 transition-colors">
                   <button
-                    onClick={() => handleToggleFavorite(player.id, player.is_favorited)}
+                    onClick={() => handleToggleFavorite(player.id)}
                     disabled={togglingFavorite === player.id}
                     className={`flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border transition-all font-medium ${
                       player.is_favorited
@@ -369,6 +398,15 @@ export default function FeedPage() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-4" />
+
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
 
       {!loading && profiles.length === 0 && (
         <div className="py-10 md:py-20 text-center">

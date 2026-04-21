@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Trophy, TrendingUp, Medal, Award, Lock, Crown, Star } from "lucide-react";
+import { Trophy, TrendingUp, Medal, Award, Lock, Crown, Star, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useSentinel } from "@/hooks/useSentinel";
 
 interface RankingEntry {
   position: number;
@@ -55,6 +56,9 @@ export default function RankingPage() {
 
   const [entries, setEntries] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [rank, setRank] = useState("Todos");
   const [sortBy, setSortBy] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -71,28 +75,52 @@ export default function RankingPage() {
     }
   }, [status, router]);
 
-  const fetchRanking = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (rank && rank !== "Todos") params.set("rank", rank);
-      params.set("sortBy", sortBy || "global_score");
-      params.set("limit", "30");
-      if (favoritesOnly) params.set("favoritesOnly", "true");
-
-      const res = await fetch(`/api/ranking?${params.toString()}`);
-      const json = await res.json();
-      setEntries(json.data ?? []);
-    } catch {
-      setEntries([]);
-    } finally {
-      setLoading(false);
-    }
+  const buildParams = useCallback((pageNum: number) => {
+    const params = new URLSearchParams();
+    if (rank && rank !== "Todos") params.set("rank", rank);
+    params.set("sortBy", sortBy || "global_score");
+    if (favoritesOnly) params.set("favoritesOnly", "true");
+    params.set("page", String(pageNum));
+    return params;
   }, [rank, sortBy, favoritesOnly]);
 
+  const fetchRanking = useCallback(async (pageNum: number, append: boolean) => {
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      const res = await fetch(`/api/ranking?${buildParams(pageNum).toString()}`);
+      const json = await res.json();
+      const incoming: RankingEntry[] = json.data ?? [];
+      setHasMore(json.hasMore ?? false);
+      setEntries((prev) => append ? [...prev, ...incoming] : incoming);
+      setPage(pageNum);
+    } catch {
+      if (!append) setEntries([]);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [buildParams]);
+
+  const filtersRef = useRef({ rank, sortBy, favoritesOnly });
   useEffect(() => {
-    fetchRanking();
-  }, [fetchRanking]);
+    const prev = filtersRef.current;
+    const changed = prev.rank !== rank || prev.sortBy !== sortBy || prev.favoritesOnly !== favoritesOnly;
+    if (!changed) return;
+    filtersRef.current = { rank, sortBy, favoritesOnly };
+    fetchRanking(1, false);
+  }, [rank, sortBy, favoritesOnly, fetchRanking]);
+
+  useEffect(() => {
+    fetchRanking(1, false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore && canAccess) fetchRanking(page + 1, true);
+  }, [loadingMore, hasMore, canAccess, page, fetchRanking]);
+
+  const sentinelRef = useSentinel(loadMore, canAccess && hasMore && !loading && !loadingMore);
 
   const handleToggleFavorite = async (profileId: string) => {
     if (!session?.user?.id) return;
@@ -162,7 +190,6 @@ export default function RankingPage() {
           )}
         </div>
 
-        {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap justify-end">
           <Select value={rank} onValueChange={(v) => setRank(v ?? "Todos")}>
             <SelectTrigger className="w-40 h-9 rounded-lg bg-card/50 border-border/50">
@@ -198,8 +225,8 @@ export default function RankingPage() {
         </div>
       </div>
 
-      {/* Top 3 Podium — hidden when favorites filter is active */}
-      {!favoritesOnly && entries.length >= 3 && (
+      {/* Top 3 Podium — page 1 only, no favorites filter */}
+      {!favoritesOnly && page === 1 && entries.length >= 3 && (
         <div className="grid grid-cols-3 gap-2 md:gap-4 mb-2">
           {[entries[1], entries[0], entries[2]].map((entry, pIdx) => {
             const realPos = pIdx === 0 ? 2 : pIdx === 1 ? 1 : 3;
@@ -260,98 +287,93 @@ export default function RankingPage() {
             </div>
           ) : (
             <div>
-              {/* Visible rows — always shown */}
+              {/* Visible rows */}
               <div className="divide-y divide-border/20">
-              {entries.slice(0, !canAccess ? FREE_VISIBLE_ROWS : entries.length).map((entry, idx) => {
-                const Icon = POSITION_ICONS[entry.position];
-                const posStyle = POSITION_STYLES[entry.position] ?? "text-muted-foreground font-bold";
+                {entries.slice(0, !canAccess ? FREE_VISIBLE_ROWS : entries.length).map((entry, idx) => {
+                  const Icon = POSITION_ICONS[entry.position];
+                  const posStyle = POSITION_STYLES[entry.position] ?? "text-muted-foreground font-bold";
 
-                return (
-                  <motion.div
-                    key={entry.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: idx * 0.03 }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group"
-                  >
-                    <div className={`w-8 text-center shrink-0 ${posStyle}`}>
-                      {Icon ? <Icon className="h-5 w-5 mx-auto" /> : entry.position}
-                    </div>
-
-                    <Avatar className="h-9 w-9 shrink-0">
-                      <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                        {entry.nickname.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-sm truncate">{entry.nickname}</p>
-                        {entry.favorites_count > 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] text-yellow-400/80">
-                            <Star className="h-2.5 w-2.5 fill-yellow-400/80" />
-                            {entry.favorites_count}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[9px] uppercase font-bold h-4">
-                          {entry.rank}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground">{entry.wins}V • {entry.matches}P</span>
-                      </div>
-                    </div>
-
-                    {/* AI Score */}
-                    <div className="text-center hidden sm:block">
-                      <div className="text-[10px] text-muted-foreground uppercase">AI Score</div>
-                      <div className={`font-bold text-sm ${entry.aiScore >= 70 ? "text-emerald-400" : entry.aiScore >= 45 ? "text-amber-400" : "text-muted-foreground"}`}>
-                        {entry.aiScore > 0 ? entry.aiScore : "—"}
-                      </div>
-                    </div>
-
-                    {/* Win Rate */}
-                    <div className="text-center hidden md:block">
-                      <div className="text-[10px] text-muted-foreground uppercase">Win %</div>
-                      <div className="font-bold text-sm">{entry.winRate}%</div>
-                    </div>
-
-                    {/* Global Score */}
-                    <div className="text-right shrink-0">
-                      <div className="text-[10px] text-muted-foreground uppercase">Score</div>
-                      <div className="font-black text-base text-primary">{entry.globalScore}</div>
-                    </div>
-
-                    {/* Favorite button */}
-                    <button
-                      onClick={() => handleToggleFavorite(entry.id)}
-                      disabled={togglingFavorite === entry.id}
-                      className={`shrink-0 h-7 w-7 flex items-center justify-center rounded-full border transition-all ${
-                        entry.is_favorited
-                          ? "border-yellow-500/40 text-yellow-400 bg-yellow-500/10"
-                          : "border-border/30 text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:border-yellow-500/40 hover:text-yellow-400"
-                      }`}
+                  return (
+                    <motion.div
+                      key={entry.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: Math.min(idx * 0.03, 0.3) }}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors group"
                     >
-                      <Star className={`h-3.5 w-3.5 ${entry.is_favorited ? "fill-yellow-400" : ""}`} />
-                    </button>
+                      <div className={`w-8 text-center shrink-0 ${posStyle}`}>
+                        {Icon ? <Icon className="h-5 w-5 mx-auto" /> : entry.position}
+                      </div>
 
-                    {/* Profile link — SCOUT only */}
-                    {isScout ? (
-                      <Link
-                        href={`/profile/${entry.id}`}
-                        className={buttonVariants({ variant: "ghost", size: "sm", className: "h-7 px-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" })}
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                          {entry.nickname.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm truncate">{entry.nickname}</p>
+                          {entry.favorites_count > 0 && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-yellow-400/80">
+                              <Star className="h-2.5 w-2.5 fill-yellow-400/80" />
+                              {entry.favorites_count}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] uppercase font-bold h-4">
+                            {entry.rank}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">{entry.wins}V • {entry.matches}P</span>
+                        </div>
+                      </div>
+
+                      <div className="text-center hidden sm:block">
+                        <div className="text-[10px] text-muted-foreground uppercase">AI Score</div>
+                        <div className={`font-bold text-sm ${entry.aiScore >= 70 ? "text-emerald-400" : entry.aiScore >= 45 ? "text-amber-400" : "text-muted-foreground"}`}>
+                          {entry.aiScore > 0 ? entry.aiScore : "—"}
+                        </div>
+                      </div>
+
+                      <div className="text-center hidden md:block">
+                        <div className="text-[10px] text-muted-foreground uppercase">Win %</div>
+                        <div className="font-bold text-sm">{entry.winRate}%</div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] text-muted-foreground uppercase">Score</div>
+                        <div className="font-black text-base text-primary">{entry.globalScore}</div>
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleFavorite(entry.id)}
+                        disabled={togglingFavorite === entry.id}
+                        className={`shrink-0 h-7 w-7 flex items-center justify-center rounded-full border transition-all ${
+                          entry.is_favorited
+                            ? "border-yellow-500/40 text-yellow-400 bg-yellow-500/10"
+                            : "border-border/30 text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:border-yellow-500/40 hover:text-yellow-400"
+                        }`}
                       >
-                        →
-                      </Link>
-                    ) : (
-                      <div className="w-9 h-7 shrink-0" />
-                    )}
-                  </motion.div>
-                );
-              })}
+                        <Star className={`h-3.5 w-3.5 ${entry.is_favorited ? "fill-yellow-400" : ""}`} />
+                      </button>
+
+                      {isScout ? (
+                        <Link
+                          href={`/profile/${entry.id}`}
+                          className={buttonVariants({ variant: "ghost", size: "sm", className: "h-7 px-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" })}
+                        >
+                          →
+                        </Link>
+                      ) : (
+                        <div className="w-9 h-7 shrink-0" />
+                      )}
+                    </motion.div>
+                  );
+                })}
               </div>
 
-              {/* Blurred rows + centered CTA — FREE users only */}
+              {/* Blurred rows + CTA — FREE users only */}
               {!canAccess && entries.length > FREE_VISIBLE_ROWS && (
                 <div className="relative">
                   <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
@@ -371,7 +393,7 @@ export default function RankingPage() {
                     </div>
                   </div>
                   <div className="divide-y divide-border/20 blur-sm select-none pointer-events-none">
-                    {entries.slice(FREE_VISIBLE_ROWS).map((entry, idx) => {
+                    {entries.slice(FREE_VISIBLE_ROWS).map((entry) => {
                       const Icon = POSITION_ICONS[entry.position];
                       const posStyle = POSITION_STYLES[entry.position] ?? "text-muted-foreground font-bold";
                       return (
@@ -414,6 +436,15 @@ export default function RankingPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Infinite scroll sentinel — PRO/SCOUT only */}
+      {canAccess && <div ref={sentinelRef} className="h-4" />}
+
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
     </div>
   );
 }
