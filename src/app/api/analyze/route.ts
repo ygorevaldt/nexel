@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import ytdl from "@distube/ytdl-core";
+import yts from "yt-search";
 import { auth } from "@/lib/auth";
 import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserRepository";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
@@ -144,6 +144,11 @@ Seu objetivo final: o jogador deve terminar a leitura desta análise **animado p
 
 export const maxDuration = 120; // Expanded to allow some buffer
 
+function getYouTubeID(url: string): string | null {
+  const arr = url.match(/(?:\/|%3D|v=|vi=)([0-9A-z-_]{11})(?:[%#?&]|$)/);
+  return (arr && arr[1]) || null;
+}
+
 const GEMINI_MAX_RETRIES = 3;
 const GEMINI_RETRY_DELAY_MS = 3000;
 
@@ -257,8 +262,11 @@ export async function POST(req: NextRequest) {
     // ─── Validate YouTube URL Duration ────────────────────────────────────────
     let durationSeconds = 0;
     try {
-      const info = await ytdl.getBasicInfo(youtubeUrl);
-      durationSeconds = parseInt(info.videoDetails.lengthSeconds || "0", 10);
+      const videoId = getYouTubeID(youtubeUrl);
+      if (!videoId) throw new Error("ID do vídeo não encontrada");
+      
+      const r = await yts({ videoId });
+      durationSeconds = r.seconds;
     } catch (err) {
       console.error("Erro ao validar URL do YouTube:", err);
       return NextResponse.json({ error: "URL inválida ou vídeo indisponível." }, { status: 400 });
