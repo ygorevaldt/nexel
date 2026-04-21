@@ -163,6 +163,12 @@ function SubscriptionContent() {
     }
 
     const currentStatus = data?.subscriptionStatus ?? "FREE";
+
+    if (currentStatus === "FREE") {
+      executeCheckout(plan);
+      return;
+    }
+
     const action = resolveAction(currentStatus, plan.id);
 
     setPendingAction({

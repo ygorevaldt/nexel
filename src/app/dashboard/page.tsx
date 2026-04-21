@@ -464,7 +464,7 @@ export default function DashboardPage() {
                   </div>
                   <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Coach IA</strong>.
                     Descubra seu score de movimentação, gelo, rotação e potencial geral.
                   </p>
                   <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
@@ -627,7 +627,7 @@ export default function DashboardPage() {
                   </div>
                   <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Coach IA</strong>.
                     Descubra seu score de movimentação, gelo, rotação e potencial geral.
                   </p>
                   <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
@@ -852,7 +852,7 @@ export default function DashboardPage() {
                   </div>
                   <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Coach IA</strong>.
                     Descubra seu score de movimentação, gelo, rotação e potencial geral.
                   </p>
                   <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>
@@ -921,7 +921,7 @@ export default function DashboardPage() {
                   </div>
                   <h2 className="text-xl font-extrabold tracking-tight">Desbloqueie o Coach IA</h2>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Recrutador de Elite</strong>.
+                    Envie gameplays e receba análise detalhada do <strong className="text-foreground">Coach IA</strong>.
                     Descubra seu score de movimentação, gelo, rotação e potencial geral.
                   </p>
                   <Link href="/subscription" className={buttonVariants({ className: "rounded-full px-8 w-full" })}>

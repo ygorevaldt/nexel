@@ -1,0 +1,43 @@
+# ==========================================
+# Nexel - Gemini Context Ignore File
+# ==========================================
+
+# 1. Dependências (Essencial bloquear)
+node_modules/
+
+# 2. Builds e Cache do Next.js / Vercel
+.next/
+out/
+build/
+.vercel/
+.turbo/
+
+# 3. Variáveis de Ambiente (Segurança e Ruído)
+.env
+.env.local
+.env.*.local
+*.pem
+
+# 4. Logs e Diagnósticos
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+
+# 5. Versionamento e IDEs
+.git/
+.vscode/
+.idea/
+.DS_Store
+
+# 6. Arquivos de Mídia e Binários 
+# (Evita que a IA tente "ler" arquivos que não são código)
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.gif
+public/**/*.svg
+public/**/*.mp4
+public/**/*.webm
+public/**/*.ico
