@@ -40,6 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           role: user.role,
           subscriptionStatus: user.subscriptionStatus,
+          systemRole: user.systemRole,
         };
       },
     }),
@@ -53,6 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.role = (user as { role: string }).role;
         token.subscriptionStatus = (user as { subscriptionStatus: string }).subscriptionStatus;
+        token.systemRole = (user as { systemRole?: 'USER' | 'ADM' }).systemRole ?? 'USER';
         token.id = user.id;
       }
 
@@ -70,11 +72,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           await dbConnect();
           const freshUser = await User.findById(token.id)
-            .select('subscriptionStatus role')
+            .select('subscriptionStatus role systemRole')
             .lean();
           if (freshUser) {
             token.subscriptionStatus = freshUser.subscriptionStatus;
             token.role = freshUser.role;
+            token.systemRole = freshUser.systemRole ?? 'USER';
           }
         } catch {
           // DB unreachable — keep existing token values until next fetch

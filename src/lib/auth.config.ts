@@ -22,6 +22,7 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string;
         // Fall back to role for sessions issued before subscriptionStatus was added to the JWT
         session.user.subscriptionStatus = (token.subscriptionStatus ?? token.role) as string;
+        session.user.systemRole = (token.systemRole ?? 'USER') as 'USER' | 'ADM';
       }
       return session;
     },

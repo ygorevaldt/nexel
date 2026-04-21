@@ -6,6 +6,8 @@ export interface IUser extends Document {
   freefire_id: string;
   passwordHash: string;
   role: 'FREE' | 'PRO' | 'SCOUT' | 'ADMIN';
+  /** System-level role — separate from subscription plan to avoid webhook conflicts */
+  systemRole: 'USER' | 'ADM';
   /** Account type determines the user's role in the ecosystem */
   accountType: 'PLAYER' | 'SCOUT';
   /** Current subscription tier */
@@ -32,6 +34,7 @@ const UserSchema: Schema<IUser> = new Schema(
     freefire_id: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['FREE', 'PRO', 'SCOUT', 'ADMIN'], default: 'FREE' },
+    systemRole: { type: String, enum: ['USER', 'ADM'], default: 'USER' },
     accountType: { type: String, enum: ['PLAYER', 'SCOUT'], default: 'PLAYER' },
     subscriptionStatus: { type: String, enum: ['FREE', 'PRO', 'SCOUT'], default: 'FREE' },
     stripeCustomerId: { type: String },
