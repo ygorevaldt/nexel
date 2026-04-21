@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { findOpenChallenges, findChallengesByUser, createChallenge } from '@/repositories/ChallengeRepository';
 import { z } from 'zod';
 
+const PAGE_SIZE = 25;
+
 const createSchema = z.object({
   type: z.enum(['1v1', '4v4']),
   matchType: z.enum(['RANKED', 'FRIENDLY']).default('RANKED'),
@@ -15,20 +17,18 @@ export async function GET(req: NextRequest) {
     const difficulty = req.nextUrl.searchParams.get('difficulty') as
       | 'BRONZE' | 'SILVER' | 'GOLD' | 'DIAMOND'
       | null;
+    const page = Math.max(1, Number(req.nextUrl.searchParams.get('page') ?? 1));
     const session = await auth();
 
     if (tab === 'history') {
       if (!session?.user?.id) {
         return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
       }
-      const challenges = await findChallengesByUser(session.user.id);
-      return NextResponse.json({ data: challenges });
+      const { challenges, hasMore } = await findChallengesByUser(session.user.id, page, PAGE_SIZE);
+      return NextResponse.json({ data: challenges, hasMore });
     }
 
-    const challenges = await findOpenChallenges(
-      20,
-      difficulty || undefined
-    );
+    const { challenges, hasMore } = await findOpenChallenges(page, PAGE_SIZE, difficulty || undefined);
 
     const data = challenges.map((c) => ({
       id: String(c._id),
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       createdAt: c.createdAt,
     }));
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, hasMore });
   } catch (error) {
     console.error('[GET /api/challenges]', error);
     return NextResponse.json({ error: 'Falha ao buscar desafios' }, { status: 500 });

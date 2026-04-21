@@ -1,33 +1,38 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
-import { findAnalysesByProfileId } from "@/repositories/AiAnalysisRepository";
+import { findAnalysesByProfileIdPaginated, countTodayAnalyses } from "@/repositories/AiAnalysisRepository";
 
 const DAILY_PRO_LIMIT = 5;
+const PAGE_SIZE = 25;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") ?? 1));
+
     // Find profile for this user
     const profile = await findProfileByUserId(session.user.id);
     if (!profile) {
-      return NextResponse.json({ analyses: [], highlighted: [], dailyUsed: 0, dailyLimit: DAILY_PRO_LIMIT });
+      return NextResponse.json({
+        analyses: [],
+        highlighted: [],
+        dailyUsed: 0,
+        dailyLimit: DAILY_PRO_LIMIT,
+        hasMore: false,
+      });
     }
 
-    // Fetch all completed analyses for this profile, newest first
-    const analyses = await findAnalysesByProfileId(String(profile._id), 50);
+    const [{ analyses, total }, dailyUsed] = await Promise.all([
+      findAnalysesByProfileIdPaginated(String(profile._id), page, PAGE_SIZE),
+      countTodayAnalyses(String(profile._id)),
+    ]);
 
-    // Count today's analyses
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
-    const dailyUsed = analyses.filter(
-      (a) => a.createdAt && new Date(a.createdAt) >= todayMidnight
-    ).length;
-
+    const hasMore = page * PAGE_SIZE < total;
     const highlightedIds = (profile.highlighted_analysis_ids ?? []).map((id) => id.toString());
 
     return NextResponse.json({
@@ -52,6 +57,7 @@ export async function GET() {
       dailyLimit: DAILY_PRO_LIMIT,
       globalScore: profile.global_score,
       scoreHistory: profile.ai_score_history ?? [],
+      hasMore,
     });
   } catch (error) {
     console.error("GET /api/me/analyses error:", error);

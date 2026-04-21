@@ -52,13 +52,13 @@ function buildSearchRegex(search: string): RegExp {
 
 export async function findProfiles(
   filters: ProfileFilters = {},
-  limit = 20
-): Promise<IProfile[]> {
+  limit = 25,
+  page = 1
+): Promise<{ profiles: IProfile[]; hasMore: boolean }> {
   await dbConnect();
   const query: Record<string, unknown> = {};
 
   if (filters.search) {
-    // Busca parcial, case-insensitive e accent-insensitive no campo nickname
     query.nickname = { $regex: buildSearchRegex(filters.search) };
   }
   if (filters.rank) {
@@ -70,8 +70,7 @@ export async function findProfiles(
   if (filters.favoritedIds && filters.favoritedIds.length > 0) {
     query._id = { $in: filters.favoritedIds.map((id) => new mongoose.Types.ObjectId(id)) };
   } else if (filters.favoritedIds && filters.favoritedIds.length === 0) {
-    // Empty favorites list — return nothing
-    return [];
+    return { profiles: [], hasMore: false };
   }
 
   const sort: Record<string, 1 | -1> = {};
@@ -86,7 +85,10 @@ export async function findProfiles(
       sort['global_score'] = -1;
   }
 
-  return Profile.find(query).limit(limit).sort(sort).lean();
+  const skip = (page - 1) * limit;
+  const raw = await Profile.find(query).sort(sort).skip(skip).limit(limit + 1).lean();
+  const hasMore = raw.length > limit;
+  return { profiles: hasMore ? raw.slice(0, limit) : raw, hasMore };
 }
 
 export async function findProfileById(id: string): Promise<IProfile | null> {

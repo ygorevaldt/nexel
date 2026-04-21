@@ -3,27 +3,41 @@ import { Challenge, IChallenge } from '@/models/Challenge';
 import mongoose from 'mongoose';
 
 export async function findOpenChallenges(
-  limit = 20,
+  page = 1,
+  limit = 25,
   difficulty?: IChallenge['difficulty']
-): Promise<IChallenge[]> {
+): Promise<{ challenges: IChallenge[]; hasMore: boolean }> {
   await dbConnect();
   const query: Record<string, unknown> = { status: 'OPEN' };
   if (difficulty) query.difficulty = difficulty;
-  return Challenge.find(query)
+  const skip = (page - 1) * limit;
+  const raw = await Challenge.find(query)
     .populate('creator_id', 'name')
     .sort({ createdAt: -1 })
-    .limit(limit)
+    .skip(skip)
+    .limit(limit + 1)
     .lean();
+  const hasMore = raw.length > limit;
+  return { challenges: hasMore ? raw.slice(0, limit) : raw, hasMore };
 }
 
-export async function findChallengesByUser(userId: string): Promise<IChallenge[]> {
+export async function findChallengesByUser(
+  userId: string,
+  page = 1,
+  limit = 25
+): Promise<{ challenges: IChallenge[]; hasMore: boolean }> {
   await dbConnect();
   const oid = new mongoose.Types.ObjectId(userId);
-  return Challenge.find({
+  const skip = (page - 1) * limit;
+  const raw = await Challenge.find({
     $or: [{ creator_id: oid }, { opponent_id: oid }],
   })
     .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit + 1)
     .lean();
+  const hasMore = raw.length > limit;
+  return { challenges: hasMore ? raw.slice(0, limit) : raw, hasMore };
 }
 
 export async function findChallengesByDifficulty(

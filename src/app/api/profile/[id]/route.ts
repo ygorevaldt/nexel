@@ -84,8 +84,10 @@ export async function GET(
     let viewerId: string | null = null;
     if (session?.user?.id) {
       viewerId = session.user.id;
-      // Use session token if available, fallback to DB
-      if (session.user.subscriptionStatus) {
+      // ADM always gets full SCOUT-level access regardless of personal subscription
+      if (session.user.systemRole === 'ADM') {
+        viewerSubscription = 'SCOUT';
+      } else if (session.user.subscriptionStatus) {
         viewerSubscription = session.user.subscriptionStatus as 'FREE' | 'PRO' | 'SCOUT';
       } else {
         const viewer = await findUserById(session.user.id);

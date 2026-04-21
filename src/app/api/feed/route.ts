@@ -3,15 +3,8 @@ import { auth } from '@/lib/auth';
 import { findProfiles } from '@/repositories/ProfileRepository';
 import { getFavoritedProfileIds } from '@/repositories/UserRepository';
 
-/**
- * GET /api/feed
- *
- * Returns a list of player profiles for the Talent Scout discovery feed.
- * Supports filtering by: search (text), minScore, rank, sortBy, favoritesOnly.
- *
- * Contact info is NEVER returned from this endpoint regardless of auth status.
- * Use GET /api/profile/[id] with a SCOUT session to access contact info.
- */
+const PAGE_SIZE = 25;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
@@ -20,6 +13,7 @@ export async function GET(req: NextRequest) {
     const rank = searchParams.get('rank') ?? undefined;
     const sortBy = (searchParams.get('sortBy') as 'global_score' | 'wins' | 'headshot_rate') || 'global_score';
     const favoritesOnly = searchParams.get('favoritesOnly') === 'true';
+    const page = Math.max(1, Number(searchParams.get('page') ?? 1));
 
     const session = await auth();
     const viewerId = session?.user?.id ?? null;
@@ -28,10 +22,14 @@ export async function GET(req: NextRequest) {
     if (favoritesOnly && viewerId) {
       favoritedIds = await getFavoritedProfileIds(viewerId);
     } else if (favoritesOnly && !viewerId) {
-      return NextResponse.json({ data: [] });
+      return NextResponse.json({ data: [], hasMore: false });
     }
 
-    const profiles = await findProfiles({ search, minScore, rank, sortBy, favoritedIds }, 30);
+    const { profiles, hasMore } = await findProfiles(
+      { search, minScore, rank, sortBy, favoritedIds },
+      PAGE_SIZE,
+      page
+    );
 
     const viewerFavoritedSet = viewerId && !favoritesOnly
       ? new Set(await getFavoritedProfileIds(viewerId))
@@ -59,7 +57,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, hasMore });
   } catch (error) {
     console.error('[GET /api/feed]', error);
     return NextResponse.json({ error: 'Falha ao buscar perfis' }, { status: 500 });
