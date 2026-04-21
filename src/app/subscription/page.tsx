@@ -48,7 +48,7 @@ export const AVAILABLE_PLANS: Plan[] = [
     name: 'Jogador Pro',
     description: 'Análises de IA ilimitadas + histórico completo de evolução',
     priceMonthly: 2990,
-    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? null,
+    stripePriceId: null,
     features: [
       'Análises de gameplay ilimitadas',
       'Histórico de evolução (AI Score)',
@@ -61,7 +61,7 @@ export const AVAILABLE_PLANS: Plan[] = [
     name: 'Scout / Time',
     description: 'Acesso a dados de contato + filtros avançados de busca de talentos',
     priceMonthly: 9990,
-    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCOUT ?? null,
+    stripePriceId: null,
     features: [
       'Tudo do Plano Pro',
       'Acesso a dados de contato dos jogadores',
