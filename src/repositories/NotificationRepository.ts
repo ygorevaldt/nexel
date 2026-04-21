@@ -13,12 +13,19 @@ export async function createNotification(data: {
   return Notification.create({ ...data, read: false });
 }
 
-export async function findNotificationsByUserId(userId: string): Promise<INotification[]> {
+export async function findNotificationsByUserId(
+  userId: string,
+  page = 1
+): Promise<{ notifications: INotification[]; hasMore: boolean }> {
   await dbConnect();
-  return Notification.find({ user_id: userId })
+  const skip = (page - 1) * NOTIFICATION_LIMIT;
+  const raw = await Notification.find({ user_id: userId })
     .sort({ createdAt: -1 })
-    .limit(NOTIFICATION_LIMIT)
+    .skip(skip)
+    .limit(NOTIFICATION_LIMIT + 1)
     .lean();
+  const hasMore = raw.length > NOTIFICATION_LIMIT;
+  return { notifications: hasMore ? raw.slice(0, NOTIFICATION_LIMIT) : raw, hasMore };
 }
 
 export async function countUnreadNotifications(userId: string): Promise<number> {

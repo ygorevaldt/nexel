@@ -23,6 +23,8 @@ import {
   Bell,
   Gamepad2,
   Coins,
+  HeadphonesIcon,
+  ShieldAlert,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -329,6 +331,25 @@ export function Navbar() {
                       <Settings className="h-4 w-4" />
                       Configurações
                     </Link>
+                    {session.user.systemRole === "ADM" ? (
+                      <Link
+                        href="/admin/incidents"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      >
+                        <ShieldAlert className="h-4 w-4" />
+                        Painel de Incidentes
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/support"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+                      >
+                        <HeadphonesIcon className="h-4 w-4" />
+                        Suporte
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         setUserMenuOpen(false);

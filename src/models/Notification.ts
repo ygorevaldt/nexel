@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface INotification extends Document {
   user_id: mongoose.Types.ObjectId;
-  type: 'PLAY_REQUEST_RECEIVED' | 'PLAY_REQUEST_RESPONDED';
+  type: 'PLAY_REQUEST_RECEIVED' | 'PLAY_REQUEST_RESPONDED' | 'SUPPORT_TICKET_RESOLVED';
   message: string;
   read: boolean;
   metadata: {
@@ -21,7 +21,7 @@ const NotificationSchema: Schema<INotification> = new Schema(
     user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     type: {
       type: String,
-      enum: ['PLAY_REQUEST_RECEIVED', 'PLAY_REQUEST_RESPONDED'],
+      enum: ['PLAY_REQUEST_RECEIVED', 'PLAY_REQUEST_RESPONDED', 'SUPPORT_TICKET_RESOLVED'],
       required: true,
     },
     message: { type: String, required: true },
