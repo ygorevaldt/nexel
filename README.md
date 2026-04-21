@@ -12,7 +12,7 @@ O **Nexel** é uma plataforma SaaS alimentada por IA desenvolvida para profissio
 Jogadores criam um perfil focado em métricas competitivas, contendo histórico de desempenho, `Global Score` e highlights. A plataforma oferece um feed filtrável para que **Scouts (Olheiros)** identifiquem novos talentos baseados em dados reais, não apenas em clipes editados.
 
 ### 2. Coach IA (PRO)
-Através de **Processamento Assíncrono**, URLs de partidas hospedadas no YouTube (de até 10 minutos) são processadas nativamente pela tecnologia **Google Gemini 2.5 Flash** em plano de fundo (*Long Polling* via `waitUntil` da Vercel) evitando timeouts severos. A IA avalia com precisão:
+Através de **Processamento Assíncrono**, URLs de partidas hospedadas no YouTube (de até 15 minutos) são processadas nativamente pela tecnologia **Google Gemini 2.5 Flash** em plano de fundo (*Long Polling* via `waitUntil` da Vercel) evitando timeouts severos. A IA avalia com precisão:
 *   **Movimentação:** Agilidade, uso de cover e posicionamento em combate.
 *   **Uso de Gelo:** Velocidade de reação e eficiência das *Gloo Walls*.
 *   **Eficiência de Rotação:** Inteligência de mapa, timing de zona e tomada de decisão.
@@ -54,7 +54,7 @@ O projeto utiliza o **Next.js 16 App Router** com foco em performance e escalabi
 A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ### Análise de IA
-*   `POST /api/analyze`: Recebe um payload JSON (`{ youtubeUrl }`). Rejeita vídeos maiores que 10 minutos. Devolve código `202 Accepted` de status com um `analysisId` de processamento e inicia envio assíncrono para a IA com `waitUntil`.
+*   `POST /api/analyze`: Recebe um payload JSON (`{ youtubeUrl }`). Rejeita vídeos maiores que 15 minutos. Devolve código `202 Accepted` de status com um `analysisId` de processamento e inicia envio assíncrono para a IA com `waitUntil`.
 *   `GET /api/analyze/[id]/status`: Rota de *Long Polling* que permite à UI do cliente checar até que o background preencha o registro com `COMPLETED` e retorne as métricas e sugestões técnicas daquela gameplay.
 
 ### Favoritos
@@ -85,7 +85,7 @@ A plataforma segue o padrão RESTful para suas rotas `/api`.
 
 ## 🤖 Pipeline de IA e Performance
 
-O **Nexel** resolve o desafio de processar vídeos longos (até 10 minutos) em infraestrutura serverless (Hobby Tier limit) através de uma estratégia otimizada:
+O **Nexel** resolve o desafio de processar vídeos longos (até 15 minutos) em infraestrutura serverless (Hobby Tier limit) através de uma estratégia otimizada:
 
 1.  **Job Assíncrono:** Ao invés do uso agressivo de memória na UI, a plataforma coleta apenas o link do YouTube e delega sua análise a instâncias com `waitUntil(job)` disparando o Gemini em plano de fundo sem travar o browser.
 2.  **Verificação Nativa:** Usa do suporte nativo da IA de extração de visões em vídeos (Youtube Url input direto). Evita tráfego de carga binária direta entre os provedores.

@@ -600,7 +600,7 @@ export default function DashboardPage() {
                   {!analyzing && (
                     <>
                       <p className="text-sm text-muted-foreground mb-4 max-w-[16rem]">
-                        Cole o link de uma partida no YouTube (até 10 min) para receber um raio-x completo do Coach IA.
+                        Cole o link de uma partida no YouTube (até 15 min) para receber um raio-x completo do Coach IA.
                       </p>
 
                       {!isScout && (
