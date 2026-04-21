@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import yts from "yt-search";
+
 import { auth } from "@/lib/auth";
 import { findUserById, consumeWelcomeAnalysisCredit } from "@/repositories/UserRepository";
 import { findProfileByUserId } from "@/repositories/ProfileRepository";
@@ -143,6 +143,15 @@ Seu objetivo final: o jogador deve terminar a leitura desta análise **animado p
 `.trim();
 
 export const maxDuration = 120; // Expanded to allow some buffer
+
+function parseISO8601Duration(duration: string): number {
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  const hours = parseInt(match[1] || "0", 10);
+  const minutes = parseInt(match[2] || "0", 10);
+  const seconds = parseInt(match[3] || "0", 10);
+  return hours * 3600 + minutes * 60 + seconds;
+}
 
 function getYouTubeID(url: string): string | null {
   const arr = url.match(/(?:\/|%3D|v=|vi=)([0-9A-z-_]{11})(?:[%#?&]|$)/);
@@ -293,15 +302,29 @@ export async function POST(req: NextRequest) {
       const videoId = getYouTubeID(youtubeUrl);
       if (!videoId) throw new Error("ID do vídeo não encontrada");
       
-      const r = await yts({ videoId });
-      durationSeconds = r.seconds;
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) {
+        console.error("YOUTUBE_API_KEY não configurada");
+        return NextResponse.json({ error: "Erro de configuração do servidor." }, { status: 500 });
+      }
+
+      const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${apiKey}`;
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      if (!data.items || data.items.length === 0) {
+        throw new Error("Vídeo não encontrado no YouTube");
+      }
+
+      const durationISO = data.items[0].contentDetails.duration;
+      durationSeconds = parseISO8601Duration(durationISO);
     } catch (err) {
       console.error("Erro ao validar URL do YouTube:", err);
       return NextResponse.json({ error: "URL inválida ou vídeo indisponível." }, { status: 400 });
     }
 
-    if (durationSeconds > 600) {
-      return NextResponse.json({ error: "O Nexel analisa partidas intensas de até 10 minutos. Por favor, envie um clipe ou uma partida mais curta." }, { status: 400 });
+    if (durationSeconds > 900) {
+      return NextResponse.json({ error: "O Nexel analisa partidas intensas de até 15 minutos. Por favor, envie um clipe ou uma partida mais curta." }, { status: 400 });
     }
 
     // ─── Authorization ────────────────────────────────────────────────────────
