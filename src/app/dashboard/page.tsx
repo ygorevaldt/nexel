@@ -135,6 +135,8 @@ export default function DashboardPage() {
   const [analysesPage, setAnalysesPage] = useState(1);
   const [analysesHasMore, setAnalysesHasMore] = useState(false);
   const [loadingMoreAnalyses, setLoadingMoreAnalyses] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [openDialogId, setOpenDialogId] = useState<string | null>(null);
 
   const userInitial = session?.user?.name?.charAt(0)?.toUpperCase() || "?";
 
@@ -476,7 +478,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full max-w-2xl grid-cols-4 mb-5 md:mb-8 h-12">
           <TabsTrigger value="overview" className="h-full rounded-lg">Visão Geral</TabsTrigger>
           <TabsTrigger value="gallery" className="h-full rounded-lg">Gameplays</TabsTrigger>
@@ -562,12 +564,20 @@ export default function DashboardPage() {
                             &quot;{analysis.recruiter_feedback.substring(0, 300)}...&quot;
                           </p>
                           {analysis.recommended_playstyle && (
-                            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                              <Sparkles className="h-4 w-4 text-blue-400 shrink-0" />
                               <span className="text-sm font-medium">
-                                Estilo recomendado: <span className="text-primary">{analysis.recommended_playstyle}</span>
+                                Estilo recomendado: <span className="text-blue-400">{analysis.recommended_playstyle}</span>
                               </span>
                             </div>
+                          )}
+                          {profileData?.analyses[0] && (
+                            <button
+                              onClick={() => { setActiveTab("gallery"); setOpenDialogId(profileData.analyses[0].id); }}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" /> Ver detalhes completos
+                            </button>
                           )}
                         </motion.div>
                       ) : (
@@ -743,8 +753,8 @@ export default function DashboardPage() {
                               {item.playstyle}
                             </div>
                           )}
-                          <Dialog>
-                            <DialogTrigger className="w-full mt-2 flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary transition-all font-medium">
+                          <Dialog open={openDialogId === item.id} onOpenChange={(open) => { if (!open) setOpenDialogId(null); }}>
+                            <DialogTrigger onClick={() => setOpenDialogId(item.id)} className="w-full mt-2 flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary transition-all font-medium">
                               <ChevronRight className="h-3.5 w-3.5" /> Ver detalhes
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-3xl w-full max-h-[88vh] overflow-y-auto">
@@ -771,9 +781,9 @@ export default function DashboardPage() {
                                 </div>
 
                                 {item.playstyle && (
-                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                                    <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                                    <span className="text-sm font-medium">Estilo recomendado: <span className="text-primary">{item.playstyle}</span></span>
+                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                    <Sparkles className="h-4 w-4 text-blue-400 shrink-0" />
+                                    <span className="text-sm font-medium">Estilo recomendado: <span className="text-blue-400">{item.playstyle}</span></span>
                                   </div>
                                 )}
 

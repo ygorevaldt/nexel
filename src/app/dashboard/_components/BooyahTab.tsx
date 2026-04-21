@@ -175,8 +175,8 @@ export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, subscriptio
                 ? 'Créditos gratuitos esgotados'
                 : `${welcomeBooyahCredits} crédito${welcomeBooyahCredits !== 1 ? 's' : ''} gratuito${welcomeBooyahCredits !== 1 ? 's' : ''} disponível${welcomeBooyahCredits !== 1 ? 'is' : ''}`
               : dailyRemaining === 0
-              ? 'Limite diário atingido'
-              : `${dailyUsed} de ${dailyLimit} envios hoje`}
+                ? 'Limite diário atingido'
+                : `${dailyUsed} de ${dailyLimit} envios hoje`}
           </p>
           <input
             ref={fileInputRef}
@@ -189,11 +189,10 @@ export function BooyahTab({ victories, stats, dailyUsed, dailyLimit, subscriptio
           />
           <label
             htmlFor="booyah-upload"
-            className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${
-              analyzing || !canSubmit || (!isFree && dailyRemaining === 0)
+            className={`cursor-pointer inline-flex items-center px-6 py-2 rounded-full font-medium transition-colors text-sm ${analyzing || !canSubmit || (!isFree && dailyRemaining === 0)
                 ? 'bg-muted text-muted-foreground cursor-not-allowed'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}
+              }`}
           >
             <UploadCloud className="h-4 w-4 mr-2" />
             {analyzing ? 'Processando...' : 'Enviar Print'}
