@@ -1,0 +1,79 @@
+{
+  "name": "scout-hub",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/scout-hub/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/scout-hub",
+        "browser": "apps/scout-hub/src/main.ts",
+        "tsConfig": "apps/scout-hub/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/scout-hub/public"
+          }
+        ],
+        "styles": ["apps/scout-hub/src/styles.css"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "configurations": {
+        "production": {
+          "buildTarget": "scout-hub:build:production"
+        },
+        "development": {
+          "buildTarget": "scout-hub:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{projectRoot}/test-output/jest/coverage"],
+      "options": {
+        "jestConfig": "apps/scout-hub/jest.config.cts",
+        "tsConfig": "apps/scout-hub/tsconfig.spec.json"
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "scout-hub:build",
+        "staticFilePath": "dist/apps/scout-hub/browser",
+        "spa": true
+      }
+    }
+  }
+}

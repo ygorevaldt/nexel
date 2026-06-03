@@ -48,3 +48,6 @@ Thumbs.db
 .nx/polygraph
 .nx/self-healing
 node_modules_old
+test-output
+
+.angular
