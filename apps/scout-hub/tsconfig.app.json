@@ -5,7 +5,7 @@
     "types": [],
     "composite": false,
     "emitDeclarationOnly": false,
-    "declaration": false,
+    "declaration": true,
     "declarationMap": false,
     "lib": ["es2022", "dom"]
   },

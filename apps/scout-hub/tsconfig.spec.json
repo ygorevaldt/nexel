@@ -8,7 +8,7 @@
     "moduleResolution": "node16",
     "composite": false,
     "emitDeclarationOnly": false,
-    "declaration": false,
+    "declaration": true,
     "declarationMap": false,
     "customConditions": [],
     "lib": ["es2022", "dom"]
