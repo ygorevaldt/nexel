@@ -11,19 +11,20 @@ describe('ProfileService', () => {
 
   beforeEach(async () => {
     mockRepository = {
-      findById: jest.fn(),
-      findByAccountId: jest.fn(),
-      findByPlayerTag: jest.fn(),
-      save: jest.fn(),
-      findFeed: jest.fn(),
-      findRanking: jest.fn(),
-      incrementFavoritesCount: jest.fn(),
+      findById: vi.fn(),
+      findByAccountId: vi.fn(),
+      findByPlayerTag: vi.fn(),
+      save: vi.fn(),
+      findFeed: vi.fn(),
+      findRanking: vi.fn(),
+      incrementFavoritesCount: vi.fn(),
     };
 
     mockPubgApiService = {
-      fetchPlayerStats: jest.fn(),
-      fetchMatchDetails: jest.fn(),
+      fetchPlayerStats: vi.fn(),
+      fetchMatchDetails: vi.fn(),
     };
+
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
