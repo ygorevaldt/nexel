@@ -26,6 +26,9 @@
     },
     {
       "path": "./libs/domain/social"
+    },
+    {
+      "path": "./libs/shared/pubg"
     }
   ]
 }

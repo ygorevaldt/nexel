@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from '@nexel/shared-database';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from '@nexel/domain-auth';
@@ -8,6 +10,8 @@ import { SocialModule } from '@nexel/domain-social';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule,
     AuthModule,
     ProfileModule,
     CoachIaModule,
