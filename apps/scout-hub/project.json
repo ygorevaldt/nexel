@@ -45,6 +45,9 @@
       },
       "defaultConfiguration": "production"
     },
+    "typecheck": {
+      "command": "tsc -p apps/scout-hub/tsconfig.app.json --noEmit"
+    },
     "serve": {
       "continuous": true,
       "executor": "@angular/build:dev-server",

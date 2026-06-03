@@ -2,16 +2,23 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./out-tsc/jest",
-    "module": "commonjs",
-    "target": "es2016",
+    "module": "node16",
+    "target": "es2022",
     "types": ["jest", "node"],
-    "moduleResolution": "node10"
+    "moduleResolution": "node16",
+    "composite": false,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "customConditions": [],
+    "lib": ["es2022", "dom"]
   },
   "files": ["src/test-setup.ts"],
   "include": [
     "jest.config.ts",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
-    "src/**/*.d.ts"
+    "src/**/*.d.ts",
+    "src/**/*.ts"
   ]
 }
