@@ -8,3 +8,4 @@ export * from './MatchVerification.js';
 export * from './Notification.js';
 export * from './PlanConsentLog.js';
 export * from './PlayRequest.js';
+export * from './Favorite.js';
