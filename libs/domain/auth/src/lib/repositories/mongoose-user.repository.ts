@@ -19,8 +19,8 @@ export class MongooseUserRepository implements IUserRepository {
   }
 
   async save(user: Partial<User>): Promise<User> {
-    if (user.id || (user as any)._id) {
-      const id = user.id || (user as any)._id;
+    if ((user as any).id || (user as any)._id) {
+      const id = (user as any).id || (user as any)._id;
       const updated = await this.userModel
         .findByIdAndUpdate(id, user, { new: true })
         .exec();

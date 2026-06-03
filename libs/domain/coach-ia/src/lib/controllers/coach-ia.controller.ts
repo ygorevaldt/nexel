@@ -3,10 +3,7 @@ import { JwtAuthGuard } from '@nexel/domain-auth';
 import { ProfileService } from '@nexel/domain-profile';
 import { CoachIaService } from '../services/coach-ia.service';
 
-export class AnalyzeBodyDto {
-  matchId: string;
-  platform: string;
-}
+import { AnalyzeBodyDto } from '@nexel/shared-types';
 
 @Controller('coach-ia')
 @UseGuards(JwtAuthGuard)

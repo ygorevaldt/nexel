@@ -1,7 +1,8 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { Favorite, Profile, User } from '@nexel/shared-types';
+import { Profile, User } from '@nexel/shared-types';
 import { ProfileService } from '@nexel/domain-profile';
-import { IFavoriteRepository, IFavoriteRepositoryToken } from '../repositories/favorite.repository.interface';
+import { IFavoriteRepositoryToken } from '../repositories/favorite.repository.interface';
+import type { IFavoriteRepository } from '../repositories/favorite.repository.interface';
 
 @Injectable()
 export class SocialService {
@@ -19,7 +20,7 @@ export class SocialService {
 
     if (existing) {
       // 1. Remove Favorito
-      const favId = existing.id || (existing as any)._id;
+      const favId = (existing as any).id || (existing as any)._id;
       await this.favoriteRepository.deleteOne(String(favId));
       
       // 2. Decrementa atomicamente

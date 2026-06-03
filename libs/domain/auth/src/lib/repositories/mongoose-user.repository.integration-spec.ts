@@ -6,6 +6,7 @@ import { User, UserSchema } from '@nexel/shared-types';
 import { MongooseUserRepository } from './mongoose-user.repository';
 import { IUserRepositoryToken } from './user.repository.interface';
 import { Model } from 'mongoose';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 describe('MongooseUserRepository Integration Test', () => {
   let repository: MongooseUserRepository;
