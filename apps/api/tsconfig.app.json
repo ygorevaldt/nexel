@@ -24,6 +24,9 @@
   ],
   "references": [
     {
+      "path": "../../libs/shared/types/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/domain/social/tsconfig.lib.json"
     },
     {

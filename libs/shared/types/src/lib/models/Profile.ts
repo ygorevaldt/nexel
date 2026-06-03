@@ -21,15 +21,16 @@ export class ProfileStats {
 
 @Schema({ _id: false })
 export class TechnicalScores {
-  @Prop({ default: null })
+  @Prop({ type: Number, default: null })
   movement: number | null;
 
-  @Prop({ default: null })
+  @Prop({ type: Number, default: null })
   combat: number | null;
 
-  @Prop({ default: null })
+  @Prop({ type: Number, default: null })
   rotation: number | null;
 }
+
 
 @Schema({ timestamps: true, collection: 'profiles' })
 export class Profile extends Document {

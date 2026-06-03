@@ -51,3 +51,5 @@ node_modules_old
 test-output
 
 .angular
+.env
+
