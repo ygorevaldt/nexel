@@ -1,0 +1,140 @@
+---
+description: Regras e melhores práticas para desenvolvimento backend no NestJS, utilizando Mongoose (MongoDB), Caching, Configuração centralizada e CLI de geração de artefatos.
+globs: apps/api/**/*.ts, libs/domain/**/*.ts, libs/shared/database/**/*.ts
+---
+
+# Rules: Especialista NestJS Backend
+
+## Escopo
+Este documento define os padrões técnicos, arquitetura e convenções obrigatórias para o backend da aplicação Nexel. Os agentes de backend devem atuar como especialistas seniores em **NestJS** e seguir estritamente as práticas recomendadas e documentações oficiais.
+
+---
+
+## 1. Documentação de Referência Obrigatória
+Qualquer dúvida técnica ou padrão de implementação de infraestrutura deve ser validado consultando as seções correspondentes da documentação oficial do NestJS:
+- **NestJS MongoDB (Techniques):** [https://docs.nestjs.com/techniques/mongodb](https://docs.nestjs.com/techniques/mongodb)
+- **NestJS MongoDB (Recipes):** [https://docs.nestjs.com/recipes/mongodb](https://docs.nestjs.com/recipes/mongodb)
+- **NestJS Configuration (Techniques):** [https://docs.nestjs.com/techniques/configuration](https://docs.nestjs.com/techniques/configuration)
+- **NestJS Caching (Techniques):** [https://docs.nestjs.com/techniques/caching](https://docs.nestjs.com/techniques/caching)
+
+---
+
+## 2. Geração de Artefatos com CLI (Nx/Nest)
+- **NUNCA crie arquivos boilerplate manualmente.**
+- Sempre utilize o CLI do NestJS ou geradores do Nx para criar novos módulos, controllers, services, etc. Isso garante o registro automático nos módulos e a consistência do código.
+- **Comandos Padrão:**
+  - Gerar uma biblioteca (módulo) em libs: `npx nx g @nx/nest:lib <lib-name> --directory=libs/domain/<lib-name>`
+  - Gerar um Service: `npx nx g @nx/nest:service <service-name> --project=<project-name> --flat`
+  - Gerar um Controller: `npx nx g @nx/nest:controller <controller-name> --project=<project-name> --flat`
+
+---
+
+## 3. Integração com MongoDB (Mongoose)
+
+### Definição de Schemas
+- Utilize a estrutura de classes decoradas baseada em `@Schema()`, `@Prop()` e `SchemaFactory.createForClass()`.
+- Campos indexados ou únicos devem ser especificados diretamente no decorator `@Prop()`.
+- O schema deve herdar de `Document` do pacote `mongoose`.
+
+```typescript
+// Exemplo Gold Standard (libs/shared/types/src/lib/models/User.ts)
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+
+@Schema({ timestamps: true, collection: 'users' })
+export class User extends Document {
+  @Prop({ required: true, unique: true, index: true })
+  email: string;
+
+  @Prop({ required: true })
+  name: string;
+
+  @Prop({ default: 'FREE', enum: ['FREE', 'PRO', 'SCOUT'] })
+  subscriptionStatus: string;
+}
+
+export const UserSchema = SchemaFactory.createForClass(User);
+```
+
+### Injeção de Modelos
+- Inject os modelos do MongoDB nos Repositories ou Services utilizando o decorator `@InjectModel(Model.name)` no construtor.
+- **REGRA DE OURO:** Controllers nunca injetam Models. A lógica de persistência e acesso a dados deve residir estritamente dentro de classes de Repositórios/Services.
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User } from './user.schema';
+
+@Injectable()
+export class UserRepository {
+  constructor(@InjectModel(User.name) private readonly userModel: Model<User>) {}
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userModel.findOne({ email }).exec();
+  }
+}
+```
+
+---
+
+## 4. Gerenciamento de Configuração (NestJS Config)
+
+- **Acesso Seguro:** NUNCA acesse `process.env` diretamente dentro dos serviços de domínio.
+- **ConfigModule & ConfigService:** Toda leitura de variáveis de ambiente deve ocorrer via injeção do `ConfigService` do módulo `@nestjs/config`.
+- Certifique-se de importar o `ConfigModule.forRoot({ isGlobal: true })` na raiz da aplicação.
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+@Injectable()
+export class PubgApiService {
+  private readonly apiKey: string;
+
+  constructor(private readonly configService: ConfigService) {
+    // Acesso limpo a variáveis injetadas
+    this.apiKey = this.configService.getOrThrow<string>('PUBG_API_KEY');
+  }
+}
+```
+
+---
+
+## 5. Gerenciamento de Caching (CacheManager)
+
+- **Otimização de Consultas:** Consultas pesadas (como análises da telemetria da API do PUBG e requisições repetitivas) devem ser submetidas a cache em memória ou Redis.
+- Use o módulo `@nestjs/cache-manager` e a biblioteca associada `cache-manager`.
+- Utilize a injeção do token `CACHE_MANAGER` para manipular chaves de cache programaticamente.
+
+```typescript
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_KEY_METADATA, Cache } from '@nestjs/cache-manager';
+
+@Injectable()
+export class MatchVerificationService {
+  constructor(@Inject('CACHE_MANAGER') private cacheManager: Cache) {}
+
+  async getCachedVerification(matchId: string): Promise<any> {
+    const cacheKey = `match:verification:${matchId}`;
+    const cachedData = await this.cacheManager.get(cacheKey);
+    
+    if (cachedData) return cachedData;
+    
+    // Se não houver cache, executa validação...
+    const verificationResult = await this.runValidation(matchId);
+    
+    // Salva no cache com TTL customizado (ex: 3600 segundos)
+    await this.cacheManager.set(cacheKey, verificationResult, 3600);
+    return verificationResult;
+  }
+}
+```
+
+---
+
+## 6. Validação e Controle de Erros (DTOs & Pipes)
+
+- **ValidationPipe:** As validações de inputs HTTP (`POST`, `PUT`, `PATCH`) devem ser declaradas no próprio DTO utilizando os decorators de validação do `class-validator` e `class-transformer`.
+- O entrypoint (`main.ts`) deve possuir o `new ValidationPipe({ whitelist: true, transform: true })` ativo globalmente.
+- **Tratamento de Exceções:** Retorne exceções semânticas nativas do NestJS (`NotFoundException`, `BadRequestException`, `UnauthorizedException`, `ConflictException`), impedindo que erros brutos de banco de dados ou exceptions genéricas vazem para a resposta do cliente.

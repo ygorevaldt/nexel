@@ -1,0 +1,127 @@
+---
+description: Diretrizes obrigatórias de frontend utilizando Angular 18+ moderno (Standalone components, Signals, Tailwind CSS v4, CLI) com design premium.
+globs: apps/scout-hub/**/*.ts, apps/scout-hub/**/*.html, apps/scout-hub/**/*.css, libs/shared/**/*.ts
+---
+
+# Rules: Especialista Angular Frontend
+
+## Escopo
+Este documento define as diretrizes obrigatórias e convenções de código para o frontend da aplicação Nexel (`apps/scout-hub`). Os agentes e desenvolvedores frontend devem seguir a especificação moderna de desenvolvimento do **Angular** e manter uma experiência visual premium de altíssima qualidade.
+
+---
+
+## 1. Documentação de Referência
+- **Angular Dev Portal:** [https://angular.dev/](https://angular.dev/)
+- Utilize sempre as recomendações e guias oficiais para estruturas reativas, Signals, control flow e templates.
+
+---
+
+## 2. Geração de Artefatos com CLI (Nx/Angular)
+- **NUNCA crie arquivos boilerplate de componentes, serviços, diretivas, guards ou pipes manualmente.**
+- Sempre utilize a CLI do Angular ou geradores do Nx para garantir que os arquivos sejam gerados com seus testes unitários padrão e de acordo com as especificações arquiteturais.
+- **Comandos Padrão:**
+  - Gerar Componente Standalone: `npx nx g @nx/angular:component <nome> --project=scout-hub --standalone`
+  - Gerar Serviço: `npx nx g @nx/angular:service <nome> --project=scout-hub`
+  - Gerar Pipe: `npx nx g @nx/angular:pipe <nome> --project=scout-hub`
+  - Gerar Directive: `npx nx g @nx/angular:directive <nome> --project=scout-hub`
+  - Gerar Route Guard: `npx nx g @nx/angular:guard <nome> --project=scout-hub`
+
+---
+
+## 3. Componentes Standalone (Zero NgModules)
+- Todos os componentes, diretivas e pipes devem possuir obrigatoriamente a propriedade `standalone: true` no seu decorator.
+- Não crie arquivos de módulo tradicionais (`*.module.ts`).
+- Especifique todas as dependências externas do componente (outros componentes standalone, diretivas como `CommonModule`, `RouterLink`, etc.) diretamente no array `imports` do `@Component()` correspondente.
+
+```typescript
+// Exemplo Gold Standard (apps/scout-hub/src/app/components/score-panel.component.ts)
+import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-score-panel',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
+      <h3 class="text-zinc-400 text-sm font-semibold uppercase">Score de Movimentação</h3>
+      <p class="text-3xl font-bold text-emerald-400 mt-2">{{ value }}</p>
+    </div>
+  `
+})
+export class ScorePanelComponent {
+  @Input({ required: true }) value!: number;
+}
+```
+
+---
+
+## 4. Reatividade de Estado com Angular Signals
+- Utilize **Signals** como o gerenciador de estados e reatividade padrão.
+- Evite subscriptions manuais (`.subscribe()`) nos componentes e reduza o acúmulo de fluxos observables RxJS apenas para exibir dados estáticos em templates.
+- **Signals Base:** `signal()`, `computed()`, `effect()`.
+- **Conversão HttpClient para Signals:** Use a função `toSignal` do pacote `@angular/core/rxjs-interop` para converter observables de requisições HTTP diretamente para signals reativos.
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ProfileService } from '../services/profile.service';
+
+@Component({
+  selector: 'app-scout-feed',
+  standalone: true,
+  template: `
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      @for (profile of profiles(); track profile.id) {
+        <app-profile-card [profile]="profile" />
+      } @empty {
+        <p class="text-zinc-500">Nenhum jogador encontrado no scout.</p>
+      }
+    </div>
+  `
+})
+export class ScoutFeedComponent {
+  private profileService = inject(ProfileService);
+  
+  // toSignal garante que a resposta do HTTP Observable seja exposta como Signal reativo no template
+  profiles = toSignal(this.profileService.getScoutProfiles(), { initialValue: [] });
+}
+```
+
+---
+
+## 5. Estilização Moderna com Tailwind CSS v4 e Design Premium
+- O frontend do Nexel deve ser deslumbrante e moderno. Utilize as capacidades nativas do Tailwind CSS v4 configurado no arquivo global `apps/scout-hub/src/styles.css`.
+- **Padrões de Design:**
+  - **Glassmorphism:** Fundos pretos/grafite translúcidos combinados com `backdrop-blur-md` e bordas finas semi-transparentes (`border-zinc-800/50`).
+  - **Paletas Tailored:** Utilize tons escuros premium (`bg-zinc-950`, `bg-zinc-900`) com destaques vibrantes (`text-emerald-400`, `text-violet-500`).
+  - **Micro-animações:** Efeitos dinâmicos no hover e transições suaves de escala e opacidade.
+
+---
+
+## 6. Transição para Angular Animations
+- **PROIBIDO utilizar Framer Motion do React no frontend Angular.**
+- Qualquer animação visual rica de transição de tela ou revelação de gráficos deve ser implementada de forma nativa utilizando as **Angular Animations** no array `animations` do decorator do componente.
+
+```typescript
+import { trigger, transition, style, animate } from '@angular/animations';
+
+@Component({
+  selector: 'app-analysis-details',
+  standalone: true,
+  animations: [
+    trigger('fadeInUp', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(15px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ])
+  ],
+  template: `
+    <div [@fadeInUp] class="bg-zinc-900/50 backdrop-blur border border-zinc-800 p-6 rounded-2xl">
+      <!-- Conteúdo da análise -->
+    </div>
+  `
+})
+export class AnalysisDetailsComponent {}
+```

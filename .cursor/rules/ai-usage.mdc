@@ -1,0 +1,76 @@
+---
+description: Padrões obrigatórios de integração com a API do Google Gemini (@google/genai) no NestJS, structured outputs, processamento de telemetria PUBG e gerenciamento de cache.
+globs: libs/domain/coach-ia/**/*.ts, apps/api/src/**/*.ts, libs/shared/types/src/lib/models/AiAnalysis.ts
+---
+
+# Rules: Integração com Google Gemini API
+
+## Escopo
+Este documento define as regras obrigatórias e padrões técnicos de uso da API de IA Generativa do Google Gemini no NestJS (`libs/domain/coach-ia` e `apps/api`), focando em previsibilidade, custo-benefício e otimização de tokens.
+
+---
+
+## 1. Modelo Padrão: `gemini-2.5-flash`
+- **Modelo Oficial:** Sempre utilize o modelo `gemini-2.5-flash` para processar e analisar telemetrias e gerar relatórios de feedback para o Coach IA.
+- **Vantagem:** O modelo Flash oferece excelente custo-benefício, baixa latência e capacidade de processamento de contexto ideal para estruturação de dados de telemetria do PUBG (JSON/Texto).
+- O uso de modelos maiores (como a linha Pro) exige justificativa arquitetural e aprovação explícita.
+
+---
+
+## 2. Structured Output Determinístico
+- **Garantia de Tipagem:** Chamadas ao Gemini que retornam scores ou feedbacks estruturados que alimentam lógica de banco de dados ou regras de negócio **DEVEM** utilizar Structured Outputs.
+- **Configuração:**
+  - Defina `responseMimeType: 'application/json'` nas configurações da chamada.
+  - Forneça o correspondente `responseSchema` utilizando a biblioteca oficial `@google/genai`.
+  - Parseie a resposta de forma segura no NestJS e valide contra DTOs ou schemas Zod/ClassValidator.
+
+```typescript
+import { GoogleGenAI, Type, Schema } from '@google/genai';
+
+const schema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    overall_potential_score: { type: Type.INTEGER },
+    movement_score: { type: Type.INTEGER },
+    rotation_efficiency: { type: Type.INTEGER },
+    recruiter_feedback: { type: Type.STRING }
+  },
+  required: ['overall_potential_score', 'movement_score', 'rotation_efficiency', 'recruiter_feedback']
+};
+
+const response = await this.ai.models.generateContent({
+  model: 'gemini-2.5-flash',
+  contents: [prompt],
+  config: {
+    responseMimeType: 'application/json',
+    responseSchema: schema,
+    temperature: 0.2, // Temperatura baixa garante foco e determinismo técnico
+  }
+});
+
+const result = JSON.parse(response.text!);
+```
+
+---
+
+## 3. Pré-Processamento de Telemetria (PUBG API)
+- **NUNCA envie o JSON bruto de telemetria da API do PUBG para o Gemini.** Isso esgotará a janela de contexto de tokens de forma desnecessária e gerará custos elevados.
+- **Agregação Prévia:** O backend NestJS deve ler e parsear a telemetria, gerando um resumo textual estruturado ou JSON resumido que condense:
+  - Armas utilizadas e eliminações.
+  - Tempo de sobrevivência e fase final da zona azul.
+  - Posição final da partida.
+  - Coordenadas de rotação (ponto de pouso, rota executada em minutos do jogo).
+  - Métricas de combate (dano causado, precisão de headshots).
+
+---
+
+## 4. Otimização de Caches (Cache por Match ID)
+- Para evitar chamadas duplicadas ou triplicadas ao Gemini pela mesma partida, utilize cache persistente no MongoDB (`AiAnalysis` collection) ou cache em memória (`CACHE_MANAGER`):
+  - **Chave de Cache:** A combinação de `matchId` (UUID retornado da API do PUBG) e `accountId` (ID do jogador).
+  - Antes de realizar a chamada à API do Gemini, verifique se a collection `AiAnalysis` já possui um registro de análise concluído para as chaves correspondentes. Se sim, retorne instantaneamente.
+
+---
+
+## 5. Limites e Tratamento de Erros
+- Implemente limites de chamadas diárias associadas ao plano do jogador (`subscriptionStatus`).
+- Se a telemetria recebida não contiver eventos suficientes (ex: jogador morreu no lobby ou desconectou nos primeiros 30 segundos), recuse a análise lançando uma exceção apropriada (`BadRequestException` ou `UnprocessableEntityException`).

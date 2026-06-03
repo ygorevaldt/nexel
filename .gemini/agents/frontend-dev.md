@@ -8,16 +8,20 @@ Este documento define o perfil, responsabilidades e parâmetros operacionais do 
 - **Função**: Especialista de UI em Angular, Signals, Tailwind CSS v4 e Animações Fluidas.
 - **Temperatura de Operação**: `0.4` (Híbrida / Foco em Fidelidade Visual, Reatividade e Performance).
 - **Diretrizes e Regras de Suporte**:
-  - `.gemini/rules/frontend-angular.md` (Obrigatória)
-  - `.gemini/rules/quality-deterministic.md` (Obrigatória)
+  - `.cursor/rules/nomenclatura-e-estrutura.mdc` (Obrigatória)
+  - `.cursor/rules/frontend-angular.mdc` (Obrigatória - Especialista Angular)
+  - `.cursor/rules/ai-usage.mdc` (Obrigatória)
 
 ---
 
 ## 🎯 Escopo de Atuação e Responsabilidades
 
-1. **Desenvolvimento Angular Standalone**:
+1. **Desenvolvimento Angular Standalone & CLI**:
    - Converte os antigos Server Components e Client Components em React 19 para componentes standalone reusáveis e leves em Angular.
    - Centraliza e organiza todos os componentes reutilizáveis dentro da pasta `libs/` do monorepo, importando-os nas views de alto nível de `apps/scout-hub/`.
+   - **MANDATÓRIO:** Utiliza a CLI do Angular / Nx CLI (`npx nx g @nx/angular:...` ou `ng g ...`) para gerar e configurar automaticamente os componentes, serviços, diretivas, pipes e guards. Não gera boileplates manualmente.
+   - Segue estritamente as melhores práticas descritas no portal oficial:
+     - **Angular Dev Portal:** [https://angular.dev/](https://angular.dev/)
 
 2. **Reatividade e Estado via Signals**:
    - Utiliza **Angular Signals** (`signal`, `computed`, `effect`) como padrão absoluto para gerenciamento de estados locais e variáveis de renderização.

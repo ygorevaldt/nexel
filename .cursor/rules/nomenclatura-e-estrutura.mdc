@@ -1,0 +1,64 @@
+---
+description: Regras de nomenclatura de arquivos, organização de pastas e limites de importação (acoplamento zero) no Nx Monorepo do Nexel.
+globs: apps/**/*, libs/**/*
+---
+
+# Rules: Nomenclatura e Estrutura do Workspace Nx
+
+## Escopo
+Este documento define as diretrizes obrigatórias de nomenclatura, organização de arquivos e regras de isolamento de módulos (acoplamento zero) no Nx Monorepo do projeto Nexel.
+
+---
+
+## 1. Regras de Nomenclatura de Código (Do's e Don'ts)
+
+### Do's (O que Fazer)
+- **kebab-case**: Nomeie todos os arquivos estritamente em `kebab-case` (ex: `user.repository.ts`, `scout-feed.component.ts`).
+- **PascalCase**: Use `PascalCase` para o nome de todas as classes, interfaces, tipos, enums e decorators (ex: `UserRepository`, `CreateUserDto`, `PlayerProfile`).
+- **camelCase**: Escreva todos os métodos de classe, funções, variáveis e propriedades em `camelCase` (ex: `findUserById`, `createAnalysis`).
+- **UPPER_SNAKE_CASE**: Escreva todas as constantes de escopo e globais em `UPPER_SNAKE_CASE` (ex: `DAILY_LIMIT_REACHED`).
+- **Exportação Nomeada**: Toda classe ou interface deve exportar apenas um item utilizando export nomeado explícito (ex: `export class ...`), nunca use `export default`.
+- **Nomes Autoexplicativos**: Use nomes completos e descritivos por extenso. Prefira `UserRepository` ao invés de `UserRepo`.
+
+### Don'ts (O que Não Fazer)
+- **Não Abreviar**: Nunca abrevie nomes de classes, métodos, arquivos ou pastas de domínio.
+- **Não usar Export Default**: O uso de `export default` é terminantemente proibido no projeto.
+
+---
+
+## 2. Estrutura e Divisão do Workspace Nx
+
+O monorepo é dividido estritamente entre aplicações (`apps/`) e bibliotecas compartilhadas ou de domínio (`libs/`).
+
+```
+nexel-monorepo/
+├── apps/
+│   ├── api/                   → API Backend NestJS (Bootstrap, configuração e roteamento)
+│   └── scout-hub/             → UI Frontend Angular (Pages, views globais, consumo de API)
+├── libs/
+│   ├── domain/                → Lógica de negócio isolada por subdomínio
+│   │   ├── auth/              → Módulo de Autenticação e estratégias JWT
+│   │   ├── coach-ia/          → Motor do Coach IA (GeminiProvider, Telemetria)
+│   │   ├── profile/           → Gestão de Perfis, scores competitivos e histórico do PUBG
+│   │   └── social/            → Feed social, Rankings e interações
+│   └── shared/
+│       ├── database/          → Conexão central MongoDB Atlas Mongoose
+│       └── types/             → DTOs, Mongoose Schemas, Interfaces TS puras
+```
+
+### A. Regras para `apps/`
+- **controllers e routes**: Devem ser extremamente limpos e finos. Apenas recebem requisições HTTP, validam payloads via DTOs/pipes, invocam o service injetado vindo de `libs/` e retornam a resposta. Nenhuma regra complexa de negócio ou banco de dados reside aqui.
+- **views e routes frontend**: Devem apenas mapear páginas e consumir componentes e serviços ricos provenientes de `libs/`.
+
+### B. Regras para `libs/`
+- **Coracão do Sistema**: Toda regra de negócio, algoritmos de cálculo, chamadas a APIs externas (PUBG, Gemini) e persistência MongoDB devem residir em `libs/`.
+
+---
+
+## 3. Dependências e Acoplamento Zero (Decoupling)
+
+- **Importações Absolutas**: NUNCA utilize importações relativas longas com múltiplos pontos (ex: `../../../../shared/types`). Use sempre os aliases configurados no `tsconfig.base.json` (ex: `@nexel/shared-types`, `@nexel/domain-profile`).
+- **Limites de Dependência inter-módulos**:
+  - Módulos de domínio em `libs/domain/` não podem possuir dependência cíclica direta.
+  - A comunicação entre módulos no backend deve ocorrer exclusivamente por meio de injeção de dependência através de interfaces públicas exportadas nos respectivos módulos.
+  - Se `libs/domain/coach-ia` precisa de dados do jogador, ele deve importar o `ProfileModule` e usar a interface pública do `ProfileService`. Jamais faça consultas diretas ao banco de dados ou collections de outro domínio de negócio.
