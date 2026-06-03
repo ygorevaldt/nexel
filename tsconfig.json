@@ -14,6 +14,18 @@
     },
     {
       "path": "./apps/scout-hub"
+    },
+    {
+      "path": "./libs/domain/auth"
+    },
+    {
+      "path": "./libs/domain/profile"
+    },
+    {
+      "path": "./libs/domain/coach-ia"
+    },
+    {
+      "path": "./libs/domain/social"
     }
   ]
 }

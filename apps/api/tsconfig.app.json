@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "dist",
     "types": ["node"],
-    "rootDir": "src",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -22,5 +21,19 @@
     "jest.config.cts",
     "src/**/*.spec.ts",
     "src/**/*.test.ts"
+  ],
+  "references": [
+    {
+      "path": "../../libs/domain/social/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/domain/coach-ia/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/domain/profile/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/domain/auth/tsconfig.lib.json"
+    }
   ]
 }
