@@ -2,10 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./out-tsc/jest",
-    "module": "node16",
     "target": "es2022",
     "types": ["jest", "node"],
-    "moduleResolution": "node16",
     "composite": false,
     "emitDeclarationOnly": false,
     "declaration": true,

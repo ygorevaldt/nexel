@@ -1,0 +1,21 @@
+# Nexel AI Development Guidelines
+
+You are an AI programming assistant working on the Nexel monorepo.
+You MUST strictly follow these guidelines for every new feature, refactoring, or bug fix.
+
+## 1. Spec-Driven Development (SDD)
+Before touching implementation files, you must always consult the requirements and design the interface/contracts first.
+
+## 2. Test-Driven Development (TDD) Workflow
+You must follow Pure TDD:
+1. **Write Tests First:** Create or update the relevant Vitest/Jest `.spec.ts` or E2E `.e2e-spec.ts` files first.
+2. **Red Phase:** The tests should initially fail because the feature doesn't exist or the bug is present.
+3. **Implement (Green Phase):** Implement the application code specifically to make the test pass.
+4. **Refactor:** Clean up the code.
+5. **Validate:** Always run `npx vitest run` or the specific `nx test <project>` to ensure 100% of tests continue passing.
+
+## 3. General Rules
+- Always use Clean Architecture and Inversion of Dependencies.
+- Maintain isolated databases for tests (e.g., `MONGODB_TEST_URI` pointing to `/nexel_test`).
+- Do not bypass tests. 100% coverage is the standard.
+- For Angular frontend, respect the ESM module resolution (`moduleResolution: bundler`).
