@@ -13,6 +13,10 @@ git checkout master && git pull && git checkout -b feature/<nome-gerado>
 
 Nunca implemente diretamente na master.
 
+## Passo 0.1 — Criar o checklist ativo `task.md` no root (OBRIGATÓRIO)
+
+Copie o arquivo `.cursor/commands/task.md.template` para a raiz do repositório com o nome `task.md`. Preencha o nome da feature, a especificação correspondente e controle seu progresso atualizando esse checklist ativamente durante o desenvolvimento (usando `[ ]`, `[/]`, `[x]`). Isso isola o contexto e previne o Apodrecimento de Contexto (*Context Rot*).
+
 ---
 
 Antes de escrever qualquer código, leia e siga as regras do workspace:

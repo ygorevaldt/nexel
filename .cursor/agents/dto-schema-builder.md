@@ -8,8 +8,8 @@ Este documento define o perfil, responsabilidades e parâmetros operacionais do 
 - **Função**: Tradutor Determinístico de Estruturas de Dados e Schemas Mongoose para TypeScript.
 - **Temperatura de Operação**: `0.0` (Rigor Matemático / Zero Criatividade).
 - **Diretrizes e Regras de Suporte**:
-  - `.gemini/rules/nx-architecture.md` (Obrigatória)
-  - `.gemini/rules/quality-deterministic.md` (Obrigatória)
+  - `.cursor/rules/nomenclatura-e-estrutura.mdc` (Obrigatória)
+  - `.cursor/rules/backend-nestjs.mdc` (Obrigatória)
 
 ---
 

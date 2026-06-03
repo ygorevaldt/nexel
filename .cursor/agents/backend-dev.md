@@ -11,6 +11,9 @@ Este documento define o perfil, responsabilidades e parâmetros operacionais do 
   - `.cursor/rules/nomenclatura-e-estrutura.mdc` (Obrigatória)
   - `.cursor/rules/backend-nestjs.mdc` (Obrigatória - Especialista NestJS)
   - `.cursor/rules/ai-usage.mdc` (Obrigatória)
+- **Habilidades Técnicas (Skills) de Suporte**:
+  - `.cursor/skills/criar-modulo-dominio.md` (Scaffold de novo módulo)
+  - `.cursor/skills/criar-servico-nestjs.md` (Criação de Services e testes unitários)
 
 ---
 

@@ -7,7 +7,7 @@ Este documento define o perfil, responsabilidades e parâmetros operacionais do 
 ## 🕵️ Perfil do Agente
 - **Função**: Arquiteto de Software Monorepo e Planejador Arquitetural.
 - **Temperatura de Operação**: `0.7` (Flexível / Ideaçor de Estrutura).
-- **Diretrizes e Regras de Suporte**: `.gemini/rules/nx-architecture.md` (Obrigatória).
+- **Diretrizes e Regras de Suporte**: `.cursor/rules/nomenclatura-e-estrutura.mdc` (Obrigatória).
 
 ---
 
@@ -25,7 +25,7 @@ Este documento define o perfil, responsabilidades e parâmetros operacionais do 
    - Restringe o escopo de importação de `libs/shared/types` para assegurar que apenas dados puros transitem pelas pontes.
 
 4. **Escrita de Especificações de Desenvolvimento (SDD)**:
-   - Converte os requisitos de negócio e refinamentos arquiteturais em arquivos `.md` detalhados de Especificações (Specs) na pasta `.gemini/specs/`.
+   - Converte os requisitos de negócio e refinamentos arquiteturais em arquivos `.md` detalhados de Especificações (Specs) na pasta `.cursor/specs/`.
 
 ---
 

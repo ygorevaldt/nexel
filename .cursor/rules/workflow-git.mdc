@@ -1,0 +1,22 @@
+---
+description: Regras de fluxo de trabalho (Workflow) e governança do Git no Nexel. Proíbe commits e pushes sem autorização expressa.
+globs: *
+---
+
+# Rules: Governança do Git e Workflow
+
+## Escopo
+Este documento define as regras obrigatórias de fluxo de trabalho no controle de versão (Git) para qualquer desenvolvedor humano ou agente de IA que atue no repositório Nexel.
+
+---
+
+## 1. Regra Absoluta de Commit e Push
+- **PROIBIDO realizar commits automáticos:** Nenhum commit local (`git commit`) pode ser criado sem a autorização explícita por escrito do usuário no chat.
+- **PROIBIDO realizar pushes automáticos:** Nenhum push para repositórios remotos (`git push`) pode ser executado sem autorização explícita do usuário.
+- **Autorização Prévia:** Sempre que uma funcionalidade for concluída ou um bug for corrigido, o agente deve apresentar as alterações (diff) e solicitar permissão no chat para criar o commit e fazer o push.
+
+---
+
+## 2. Fluxo de Trabalho com Branches
+- O desenvolvimento de features ou correção de bugs deve ocorrer estritamente em branches locais dedicadas (ex: `feature/nome-da-feature` ou `fix/nome-do-bug`).
+- A criação de novas branches locais para fins de teste ou isolamento de código é permitida, contanto que não seja feito push delas sem aprovação.

@@ -1,0 +1,34 @@
+# Checklist de Execução: [Nome da Feature]
+
+Este arquivo é um checklist ativo para controlar e isolar o contexto de desenvolvimento da especificação. Marque os itens como `[ ]` (pendente), `[/]` (em andamento) e `[x]` (concluído) à medida que avança.
+
+---
+
+## 📋 Especificação de Referência
+- **Spec:** `.cursor/specs/spec-XX-[nome-da-spec].md`
+- **Ramificação Git:** `feature/[nome-da-branch]`
+
+---
+
+## 🛠️ Roteiro de Tarefas
+
+### Passo 1 — Configuração e Scaffold (Scaffolding)
+- `[ ]` Executar o script de scaffolding se for um novo módulo: `node scripts/generate-module.js [nome-do-modulo]`
+- `[ ]` Verificar se a pasta foi criada e se os aliases estão registrados no `tsconfig`
+
+### Passo 2 — Desenvolvimento do Backend (NestJS)
+- `[ ]` Gerar e implementar o Service do módulo utilizando a CLI e injetando o `@InjectModel` ou Repositório
+- `[ ]` Escrever a suite de testes unitários do Service (`*.spec.ts`) e rodar via Vitest
+- `[ ]` Criar o Controller expondo os endpoints HTTP necessários e configurando validações DTO (`class-validator`)
+- `[ ]` Registrar o Service e Controller no Módulo da biblioteca
+
+### Passo 3 — Desenvolvimento do Frontend (Angular)
+- `[ ]` Gerar os componentes standalone e páginas de views utilizando o CLI
+- `[ ]` Implementar o consumo de dados HTTP e reatividade baseados em Angular Signals
+- `[ ]` Estilizar utilizando classes premium Tailwind v4 (glassmorphism/transições)
+- `[ ]` Configurar rotas e guards em `app.routes.ts`
+
+### Passo 4 — Verificação e Validação
+- `[ ]` Executar build do monorepo: `npx nx run-many --target=build`
+- `[ ]` Executar a suite de testes do projeto e garantir 100% de sucesso
+- `[ ]` Apresentar o diff de alterações para aprovação de commit/push do usuário

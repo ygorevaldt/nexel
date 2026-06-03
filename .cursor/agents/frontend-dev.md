@@ -11,6 +11,8 @@ Este documento define o perfil, responsabilidades e parâmetros operacionais do 
   - `.cursor/rules/nomenclatura-e-estrutura.mdc` (Obrigatória)
   - `.cursor/rules/frontend-angular.mdc` (Obrigatória - Especialista Angular)
   - `.cursor/rules/ai-usage.mdc` (Obrigatória)
+- **Habilidades Técnicas (Skills) de Suporte**:
+  - `.cursor/skills/construir-componente-angular.md` (Criação de componentes e Signals)
 
 ---
 
