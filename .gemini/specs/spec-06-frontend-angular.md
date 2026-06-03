@@ -1,86 +1,99 @@
-# Spec 06: Frontend Angular (Modern UI, Signals & Core Pages)
+# Spec 06: Frontend Angular (Modern UI, Signals, i18n & Mapa Tático)
 
-Esta especificação orienta a reconstrução completa da interface visual e fluxo de navegação do Nexel no frontend `scout-hub` utilizando Angular Standalone Components, Tailwind CSS v4, Angular Signals para gerenciamento de estado e Angular Animations nativas.
+Esta especificação orienta a reconstrução completa da interface visual e fluxo de navegação do Nexel no frontend `scout-hub` utilizando Angular Standalone Components, Tailwind CSS v4, Angular Signals para gerenciamento de estado e i18n, além da renderização premium do Mapa Tático de telemetria de partidas do PUBG.
 
 ---
 
 ## 1. Escopo de Trabalho
 1. Configurar o bootstrap do Angular com Tailwind CSS v4 no arquivo `styles.css`.
 2. Implementar as rotas da aplicação em `app.routes.ts` com proteção de acessos via Guards Angular.
-3. Desenvolver os serviços de consumo de API usando `HttpClient` e integrando com signals usando `toSignal`.
-4. Reconstruir as 6 páginas principais da plataforma utilizando componentes modulares standalone de `libs/`.
+3. Desenvolver a **Estratégia de Internacionalização (i18n)** nativa usando Angular Signals para troca dinâmica de idioma (Português/Inglês) sem recarregar a página.
+4. Criar o componente premium **Mapa Tático de Telemetria (Interactive Tactical Map)** usando HTML5 Canvas/SVG para desenhar trajetórias, zonas e tiroteios.
+5. Desenvolver os gráficos de **Evolução Semanal** de K/D e taxas de vitória baseados em SVGs dinâmicos reativos aos Signals.
+6. Reconstruir as 6 páginas principais da plataforma utilizando componentes modulares standalone de `libs/`.
 
 ---
 
-## 2. Configuração de Rotas e Guards Reativos
+## 2. Internacionalização Baseada em Signals (i18n)
 
-O sistema de rotas fará uso de Guards funcionais nativos do Angular para bloquear acessos a rotas sensíveis baseado no JWT armazenado no estado ou no cookie seguro:
+Para suportar o público global (Português/Inglês) desde o dia 1, criaremos um `I18nStore` global utilizando Signals para gerenciar e traduzir as strings na UI.
 
 ```typescript
-import { Routes } from '@angular/router';
-import { authGuard } from './guards/auth.guard';
-import { subscriptionGuard } from './guards/subscription.guard';
+import { Injectable, signal, computed } from '@angular/core';
 
-export const routes: Routes = [
-  { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
-  { path: 'register', loadComponent: () => import('./pages/register/register.component').then(m => m.RegisterComponent) },
-  
-  // Rotas Protegidas
-  { 
-    path: 'coach-ia', 
-    loadComponent: () => import('./pages/coach-ia/coach-ia.component').then(m => m.CoachIaComponent),
-    canActivate: [authGuard, subscriptionGuard],
-    data: { requiredPlans: ['PRO', 'SCOUT'] }
-  },
-  { 
-    path: 'feed', 
-    loadComponent: () => import('./pages/feed/feed.component').then(m => m.FeedComponent),
-    canActivate: [authGuard]
-  },
-  { 
-    path: 'profile/:id', 
-    loadComponent: () => import('./pages/profile/profile.component').then(m => m.ProfileComponent),
-    canActivate: [authGuard]
-  },
-  { path: '**', redirectTo: 'feed' }
-];
+@Injectable({
+  providedIn: 'root'
+})
+export class I18nStore {
+  readonly currentLang = signal<'pt' | 'en'>('pt');
+
+  private readonly translations = {
+    pt: {
+      WELCOME: 'Bem-vindo ao Nexel',
+      COACH_FEEDBACK: 'Feedback do Coach de Elite',
+      TACTICAL_MAP: 'Mapa Tático da Partida',
+      WEEKLY_EVOLUTION: 'Evolução Semanal',
+      UPGRADE_PLAN: 'Fazer Upgrade de Plano',
+      MOV_SCORE: 'Movimentação',
+      COMBAT_SCORE: 'Combate',
+      ROT_SCORE: 'Rotação'
+    },
+    en: {
+      WELCOME: 'Welcome to Nexel',
+      COACH_FEEDBACK: 'Elite Coach Feedback',
+      TACTICAL_MAP: 'Match Tactical Map',
+      WEEKLY_EVOLUTION: 'Weekly Evolution',
+      UPGRADE_PLAN: 'Upgrade Subscription Plan',
+      MOV_SCORE: 'Movement',
+      COMBAT_SCORE: 'Combat',
+      ROT_SCORE: 'Rotation'
+    }
+  };
+
+  // Signal computado para expor as chaves de tradução ativas
+  readonly t = computed(() => this.translations[this.currentLang()]);
+
+  setLanguage(lang: 'pt' | 'en') {
+    this.currentLang.set(lang);
+    localStorage.setItem('nexel_lang', lang);
+  }
+}
+```
+
+No template do componente Angular:
+```html
+<h1>{{ i18n.t().WELCOME }}</h1>
+<button (click)="i18n.setLanguage('en')">EN</button>
 ```
 
 ---
 
-## 3. Mapeamento das Telas a Serem Portadas
+## 3. Mapeamento das Telas e Componentes Premium
 
-### 1. Login / Registro
-- Design minimalista e elegante com tema escuro de alto contraste.
-- Formulario reativo integrado e consumo dos tokens JWT, salvando o estado no `AuthStore` baseado em Signals.
+### 1. Dashboard Coach IA e Mapa Tático
+* O usuário seleciona uma partida. A telemetria JSON é carregada no frontend.
+* **Componente `TacticalMapComponent`**:
+  - Exibe como plano de fundo a imagem do mapa da partida (ex: `erangel.jpg`).
+  - Utiliza `<canvas>` ou `<svg>` sobreposto em tamanho responsivo.
+  - **Conversão de Coordenadas**: As posições da API do PUBG são fornecidas em coordenadas espaciais de `0` a `810000`. O componente aplica uma regra de três simples para escalar as posições para a largura e altura do container (ex: `x_canvas = (x_pubg / 810000) * canvas_width`).
+  - Desenha:
+    * Uma linha conectando as coordenadas `LogPlayerPosition` consecutivas do jogador (trajetória de rotação).
+    * Círculos SVG concêntricos representando as fronteiras da Safe Zone (círculo azul e branco) a cada Fase da partida.
+    * Ícones de mira vermelha nos pontos de combate (`LogPlayerAttack` / `LogPlayerTakeDamage`) e um ícone de caveira onde o jogador faleceu.
 
-### 2. Dashboard Coach IA
-- Campo de busca ou seleção para carregar a partida recente do jogador pelo `matchId` e plataforma.
-- Tela com animação de carregamento (Lottie ou CSS puro baseado em `@keyframes` e transições de opacidade Angular).
-- Painel de Scores interativo: Revelação de scores (Movimentação, Combate, Rotação) animando as barras de 0 até o valor recebido por meio de Angular Animations.
-- Feedback do Coach estruturado em blocos colapsáveis ricos com micro-interações de clique.
+### 2. Perfil Público e Gráficos Semanais
+* **Evolução Semanal**: Em vez de bibliotecas pesadas de terceiros, os gráficos de evolução de K/D e taxas de vitória semanais serão desenhados com **SVGs Táticos Reativos**.
+* O componente gera uma tag `<svg viewBox="0 0 500 200">` e constrói dinamicamente a propriedade `d` da tag `<path>` (ex: `d="M 0 120 L 100 80 L 200 110 ..."`), interpolando as estatísticas históricas dos Signals de K/D semanal do jogador.
+* **Blur para Usuários Free**: Se o visualizador for `FREE` analisando o perfil de outro jogador, as estatísticas avançadas de IA e os detalhes do mapa tático serão cobertos por um filtro de blur CSS (`backdrop-filter: blur(10px)`) com um banner CTA premium centralizado.
 
-### 3. Vitrine de Talentos (Feed)
-- Cartões de perfil com design de vidro (glassmorphism), bordas brilhantes sutis e efeito hover 3D (usando transformações CSS com Tailwind).
-- Barra lateral de filtros instantâneos baseados em inputs Signals que disparam novas listagens de forma reativa.
-
-### 4. Perfil Público
-- Divisão inteligente baseada no nível do viewer:
-- Viewer `FREE` visualizando terceiros: Oculta scores detalhados sob blur e exibe um modal ou card premium dinâmico convidando a assinar o plano `PRO` para revelar a análise do jogador.
-- Viewer `PRO`/`SCOUT`: Revela dados de contato (SCOUT) e gráficos interativos de pizza ou radar (representando Movimentação, Combate e Rotação) criados puramente via SVGs dinâmicos reativos às variáveis do Signal.
-
-### 5. Leaderboard (Ranking Global)
-- Exibição de tabela interativa de classificação.
-- Destaque premium em formato de pódio tridimensional para o Top 3 jogadores, carregando imagens e estatísticas.
-
-### 6. Assinaturas e Planos
-- Cards de planos comparativos (`PRO` vs `SCOUT`) com tabelas de recursos e botão dinâmico integrado para chamar a API de Stripe Checkout do NestJS.
+### 3. Leaderboard (Ranking Global)
+* Exibe a tabela de classificação tática baseada em scores verificados (K/D, média de sobrevivência).
+* Pódio tridimensional em SVG/CSS para destacar o Top 3.
 
 ---
 
-## 4. Gerenciamento de Animações Substitutas
-
-Toda micro-animação deve ser limpa e expressa nos metadados do componente. Exemplo de animação de entrada sequencial (Stagger) para itens do feed de talentos:
+## 4. Animações e Transições
+Exemplo de animação de entrada sequencial (Stagger) para itens do feed de talentos e de revelação dos scores:
 
 ```typescript
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
@@ -100,5 +113,5 @@ export const listAnimation = trigger('listAnimation', [
 ---
 
 ## 5. Garantia de Qualidade e Testes (Vitest)
-- Executar testes unitários de componentes em Angular utilizando o test runner **Vitest** integrado com `@analogjs/vite-plugin-angular` (ou o compilador Vite nativo do ecossistema do Nx Monorepo).
-- Garantir que todos os services do frontend tenham mocks de requisição HTTP consistentes.
+- Testar a reatividade do `I18nStore`: validar se a alteração do Signal `currentLang` altera dinamicamente o texto exibido nas chaves traduzidas.
+- Validar se a função de mapeamento de coordenadas do mapa calcula a proporção correta com base no tamanho do container.

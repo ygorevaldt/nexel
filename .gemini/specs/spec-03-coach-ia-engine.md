@@ -1,22 +1,21 @@
-# Spec 03: Engine do Coach IA (Gemini API & Telemetria do PUBG)
+# Spec 03: Engine do Coach IA (Gemini API, Telemetria & Insights de Armas)
 
-Esta especificação orienta a migração do motor de análises de gameplay por IA (Gemini 2.5 Flash) do Next.js para o NestJS, adaptado para realizar análises estratégicas de partidas de PUBG usando dados de telemetria da API oficial, em substituição ao processamento manual de vídeos do YouTube.
+Esta especificação orienta a implementação do motor de análises de gameplay por IA (Gemini 2.5 Flash) no NestJS, adaptada para ler arquivos de telemetria do PUBG, extrair insights técnicos detalhados sobre o desempenho de armas e recuo (spray), e fornecer suporte nativo a multi-idiomas (internacionalização) desde o prompt de IA.
 
 ---
 
 ## 1. Escopo de Trabalho
 1. Criar o `CoachIaModule` em `libs/domain/coach-ia` contendo `CoachIaController`, `CoachIaService` e `GeminiProvider`.
 2. Encapsular a chamada do Google Gemini no `GeminiProvider` com o prompt do Coach de Elite especializado em PUBG, forçando **Structured Outputs** determinísticos do `gemini-2.5-flash`.
-3. Implementar um sistema de **Fila Assíncrona** gerenciado localmente via Eventos no NestJS (`@nestjs/event-emitter` ou Fila Reativa RxJS) com suporte plugável para BullMQ/Redis.
-4. Implementar endpoints de postagem de análise e consulta de status (`/coach-ia/analyze` e `/coach-ia/analyze/:id/status`).
-5. Migrar regras de rate-limiting (limite de 5 envios diários para usuários PRO e consumo de créditos de boas-vindas para FREE).
-6. Integrar a busca de dados de telemetria (via `pubg-api-specialist`) para baixar a partida do PUBG e consolidar os dados antes do envio para a IA.
+3. Adicionar o suporte a **Internacionalização (i18n)**: passar o idioma desejado (`pt` ou `en`) ao prompt, forçando o Gemini a responder o feedback no idioma do usuário.
+4. Desenvolver o algoritmo de parsing no backend para analisar eventos de disparos (`LogPlayerAttack`) e danos (`LogPlayerTakeDamage`), calculando a eficiência de armas individuais e comportamento do recuo (spray).
+5. Configurar o sistema de **Fila Assíncrona** gerenciado localmente via Eventos no NestJS com suporte a status `PROCESSING`, `COMPLETED` e `FAILED` no MongoDB.
 
 ---
 
-## 2. GeminiProvider (Structured Output)
+## 2. GeminiProvider (Structured Output com Suporte a i18n)
 
-A integração com o `@google/genai` deve ser centralizada no `GeminiProvider`. O schema JSON determinístico mapeará scores de Movimentação, Combate e Rotação:
+A integração com o `@google/genai` deve ser centralizada no `GeminiProvider`. O schema JSON determinístico mapeará os scores e o feedback de coaching internacionalizado.
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -36,7 +35,15 @@ export class GeminiProvider {
       recruiter_feedback: { type: Type.STRING, description: "Feedback detalhado do Coach de Elite em estilo coaching profissional tático." },
       strengths: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Pontos fortes demonstrados na partida." },
       areas_for_improvement: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Oportunidades de melhoria tática." },
-      recommended_playstyle: { type: Type.STRING, description: "Estilo de jogo tático recomendado (ex: Rusher, Sniper, Rotacionador Lento, Borda de Gás)." }
+      weapon_analysis: {
+        type: Type.OBJECT,
+        properties: {
+          spray_control_feedback: { type: Type.STRING, description: "Feedback específico sobre o controle de recuo/spray de armas automáticas." },
+          setup_recommendation: { type: Type.STRING, description: "Sugestões de acoplamentos/attachments e armas recomendados com base no desempenho." }
+        },
+        required: ["spray_control_feedback", "setup_recommendation"]
+      },
+      recommended_playstyle: { type: Type.STRING, description: "Estilo de jogo tático recomendado (ex: Rusher, Sniper, Rotacionador Lento)." }
     },
     required: [
       "overall_potential_score",
@@ -46,6 +53,7 @@ export class GeminiProvider {
       "recruiter_feedback",
       "strengths",
       "areas_for_improvement",
+      "weapon_analysis",
       "recommended_playstyle"
     ]
   };
@@ -54,8 +62,13 @@ export class GeminiProvider {
     this.ai = new GoogleGenAI({ apiKey: this.configService.get<string>('GEMINI_API_KEY') });
   }
 
-  async generateGameplayAnalysis(telemetrySummary: string): Promise<any> {
-    const prompt = `Analise a telemetria da partida do jogador no PUBG e forneça feedback tático estruturado:\n\n${telemetrySummary}`;
+  async generateGameplayAnalysis(telemetrySummary: string, language: 'en' | 'pt'): Promise<any> {
+    const promptInstructions = language === 'en' 
+      ? "You are an elite PUBG esports coach. Analyze the telemetry data below and generate the JSON response strictly in English language." 
+      : "Você é um técnico de elite de PUBG esports. Analise a telemetria abaixo e gere as respostas em formato JSON estritamente no idioma Português.";
+
+    const prompt = `${promptInstructions}\n\nResumo de Telemetria:\n${telemetrySummary}`;
+
     const response = await this.ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [prompt],
@@ -74,71 +87,58 @@ export class GeminiProvider {
 
 ---
 
-## 3. Fila Assíncrona no NestJS (Background Processing)
+## 3. Algoritmo de Parsing de Armas & Recuo (Spray Analysis)
 
-Em substituição ao `waitUntil` do Vercel Serverless, criaremos uma arquitetura orientada a eventos usando o `@nestjs/event-emitter` do NestJS. O controller responde imediatamente `202 Accepted` ao receber o ID da partida (`matchId`) e plataforma, emitindo um evento local que é processado em segundo plano por um Listener gerenciado.
+Antes de invocar o Gemini, o `PubgApiService` analisa o fluxo bruto de eventos da telemetria da partida específica do jogador:
 
-### Lógica do Fluxo de Enfileiramento:
-1. O usuário chama `POST /coach-ia/analyze` enviando o payload `{ matchId, platform }`.
-2. O `CoachIaService` valida limites diários e créditos e cria o registro no MongoDB com status `"PROCESSING"`.
-3. O serviço emite o evento `analysis.queued` e retorna instantaneamente o `analysisId` com status `PROCESSING` (Retorno 202).
-4. O `AnalysisEventListener` escuta o evento `analysis.queued` de forma assíncrona:
-   - Invoca o serviço da API do PUBG para obter os dados da partida.
-   - Baixa o JSON de telemetria.
-   - Resume a telemetria para o jogador em formato de texto.
-   - Invoca o `GeminiProvider`.
-   - Atualiza os scores no perfil do jogador.
-   - Altera o status no MongoDB para `"COMPLETED"` ou `"FAILED"` se houver erro.
+1. **Associação de Tiros e Danos (`LogPlayerAttack` ➡️ `LogPlayerTakeDamage`)**:
+   - Mapeamos a cadência de disparos agrupando eventos `LogPlayerAttack` consecutivos em intervalos inferiores a 500ms (representando rajadas ou spray contínuo).
+   - Analisamos a quantidade de tiros disparados contra a quantidade de tiros que acertaram o inimigo (`LogPlayerTakeDamage` correspondente).
+   - Se a taxa de acerto despencar após os primeiros 5 tiros em combate de média/longa distância com armas como `Beryl M762` ou `M416`, deduz-se deficiência no controle do recuo inicial do spray.
+2. **Setup de Acessórios (`LogItemEquip`)**:
+   - Correlacionamos os acoplamentos equipados (Compensador, Punho Vertical, Punho Angular, etc.) com a taxa de acerto geral da arma correspondente.
+   - Isso permite à IA sugerir mudanças precisas de setup (ex: *"Sua taxa de headshot com a Mini14 aumentou 15% após equipar o compensador e punho leve"*).
+3. **Consolidação do Prompt**:
+   - O backend gera uma seção específica no resumo da telemetria:
+     ```text
+     [Weapon Stats]
+     - M416: 120 disparos efetuados. 4 rajadas de spray contínuo. Taxa de acerto nos primeiros 5 disparos: 60%. Taxa de acerto após 5 disparos: 15% (alvo a 45 metros). Acessórios equipados: Silenciador, Punho Angular.
+     - Mini14: 30 disparos. Taxa de headshot: 22%. Acessórios equipados: Compensador, Punho Leve.
+     ```
+
+---
+
+## 4. Rota do Controller (i18n Header)
+
+O endpoint `/coach-ia/analyze` aceitará o cabeçalho de idioma e enviará o contexto ao fluxo de eventos:
 
 ```typescript
-// Evento emitido
-export class AnalysisQueuedEvent {
-  constructor(
-    public readonly analysisId: string,
-    public readonly matchId: string,
-    public readonly platform: string,
-    public readonly pubgAccountId: string,
-    public readonly profileId: string
-  ) {}
-}
+@Controller('coach-ia')
+export class CoachIaController {
+  constructor(private readonly coachIaService: CoachIaService) {}
 
-// Processador em segundo plano
-@Injectable()
-export class AnalysisEventListener {
-  constructor(
-    private readonly geminiProvider: GeminiProvider,
-    private readonly pubgApiService: PubgApiService, // Serviço que interage com a API PUBG
-    private readonly coachIaService: CoachIaService
-  ) {}
-
-  @OnEvent('analysis.queued', { async: true }) // Roda em background
-  async handleAnalysisQueued(event: AnalysisQueuedEvent) {
-    try {
-      // 1. Puxa a telemetria e gera o resumo textual
-      const telemetrySummary = await this.pubgApiService.getMatchTelemetrySummary(event.matchId, event.platform, event.pubgAccountId);
-      
-      // 2. Envia para o Gemini
-      const result = await this.geminiProvider.generateGameplayAnalysis(telemetrySummary);
-      
-      // 3. Finaliza a análise gravando no banco e atualizando o score do perfil
-      await this.coachIaService.completeAnalysis(event.analysisId, result);
-    } catch (error) {
-      await this.coachIaService.failAnalysis(event.analysisId, error.message);
-    }
+  @Post('analyze')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async queueAnalysis(
+    @Body() body: { matchId: string; platform: string },
+    @Headers('accept-language') acceptLanguage: string,
+    @Req() req: any
+  ) {
+    const language = acceptLanguage?.startsWith('en') ? 'en' : 'pt';
+    const analysisId = await this.coachIaService.enqueue(
+      body.matchId,
+      body.platform,
+      req.user.pubgAccountId,
+      req.user.profileId,
+      language
+    );
+    return { analysisId, status: 'PROCESSING' };
   }
 }
 ```
 
 ---
 
-## 4. Polling de Status
-- Rota: `GET /coach-ia/analyze/:id/status`
-- Retorna o status atual (`PROCESSING`, `COMPLETED`, `FAILED`) e o resultado da análise se já estiver concluído.
-- Previne sobrecarga no banco de dados com leituras eficientes (`.lean()` do Mongoose).
-
----
-
 ## 5. Testes com Vitest
-- **Mock do Gemini e API PUBG**: Garantir que as chamadas de API do PUBG e do Google Gemini sejam totalmente mockadas nos testes unitários e de integração utilizando `vi.fn()`.
-- **Validação de Limites**: Testar que usuários PRO estourando o limite diário de 5 análises recebem status `429 Too Many Requests`.
-- **Fluxo Background**: Validar que a emissão do evento é disparada e o status muda para `COMPLETED` no MongoDB após a simulação de resolução do processamento de telemetria e IA.
+- **Teste de Idioma (i18n)**: Validar nos mocks se a string de prompt enviada à chamada do Gemini inclui a instrução de idioma correspondente (`en` ou `pt`) conforme o cabeçalho de request enviado.
+- **Teste de Cálculo de Spray**: Inserir uma telemetria mockada onde um jogador erra a maior parte dos tiros após o 5º disparo. Garantir que o resumo de telemetria compilado pelo backend contenha as estatísticas de declínio de acerto do spray descritas de forma correta.
