@@ -16,7 +16,20 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*.ts"],
-  "references": [],
+  "references": [
+    {
+      "path": "../auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../profile/tsconfig.lib.json"
+    },
+    {
+      "path": "../../shared/pubg/tsconfig.lib.json"
+    },
+    {
+      "path": "../../shared/types/tsconfig.lib.json"
+    }
+  ],
   "exclude": [
     "jest.config.ts",
     "jest.config.cts",
